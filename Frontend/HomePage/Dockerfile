@@ -4,10 +4,11 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Accept build args
-ARG VITE_API_BASE_URL=http://localhost:8089/api/v1
+ARG VITE_API_BASE_URL=https://api.fureup.my.id/api/v1
 
 # Set environment variable for build
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_API_URL=$VITE_API_BASE_URL
 
 # Copy package files
 COPY package*.json ./
