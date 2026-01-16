@@ -117,7 +117,7 @@ services:
       context: ./Frontend/AdminDashboard
       dockerfile: Dockerfile
       args:
-        - VITE_API_BASE_URL=http://${VPN_SERVER_IP:-202.10.48.155}:8089/api/v1
+        - VITE_API_URL=http://${VPN_SERVER_IP:-202.10.48.155}:8089/api/v1
     container_name: rtrwnet-admin-dashboard
     restart: unless-stopped
     ports:
