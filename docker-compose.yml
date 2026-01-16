@@ -70,7 +70,7 @@ services:
       - ENABLE_RADIUS=true
       - RADIUS_AUTH_PORT=1812
       - RADIUS_ACCT_PORT=1813
-      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://${VPN_SERVER_IP:-202.10.48.155}:3000,http://${VPN_SERVER_IP:-202.10.48.155}:5173
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://${VPN_SERVER_IP:-202.10.48.155}:3000,http://${VPN_SERVER_IP:-202.10.48.155}:5173,http://${VPN_SERVER_IP:-202.10.48.155}:5174,http://${VPN_SERVER_IP:-202.10.48.155}:5175
       - MIDTRANS_SERVER_KEY=${MIDTRANS_SERVER_KEY:-}
       - MIDTRANS_CLIENT_KEY=${MIDTRANS_CLIENT_KEY:-}
       - MIDTRANS_IS_PRODUCTION=${MIDTRANS_IS_PRODUCTION:-false}
