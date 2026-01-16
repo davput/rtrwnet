@@ -14,7 +14,7 @@ services:
       POSTGRES_DB: rtrwnet_saas
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./Backend/migrations/init_schema.sql:/docker-entrypoint-initdb.d/01_init_schema.sql:ro
+      - ./Backend/migrations/docker-init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
     ports:
       - "5432:5432"
     healthcheck:
