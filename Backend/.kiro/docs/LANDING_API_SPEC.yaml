@@ -1,0 +1,414 @@
+openapi: 3.0.3
+info:
+  title: RT/RW Net SaaS - Landing Page API
+  description: |
+    API endpoints untuk Landing Page (Register & Pricing).
+    Dashboard tenant ada di project terpisah.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@rtrwnet.com
+
+servers:
+  - url: http://localhost:8089
+    description: Development server
+  - url: https://api.yourdomain.com
+    description: Production server
+
+tags:
+  - name: Public
+    description: Public endpoints (no authentication required)
+
+paths:
+  /api/v1/public/plans:
+    get:
+      tags:
+        - Public
+      summary: Get available subscription plans
+      description: Fetch all active subscription plans untuk ditampilkan di pricing page
+      operationId: getPlans
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plans:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Plan'
+              example:
+                plans:
+                  - id: "550e8400-e29b-41d4-a716-446655440010"
+                    name: "Standard Plan"
+                    slug: "standard"
+                    description: "Perfect for small ISPs"
+                    price: 299000
+                    billing_cycle: "monthly"
+                    features:
+                      - "Up to 100 customers"
+                      - "Basic reporting"
+                      - "Email support"
+                    max_customers: 100
+                    max_users: 3
+                    is_active: true
+                  - id: "550e8400-e29b-41d4-a716-446655440011"
+                    name: "Premium Plan"
+                    slug: "premium"
+                    description: "For growing ISPs"
+                    price: 599000
+                    billing_cycle: "monthly"
+                    features:
+                      - "Up to 500 customers"
+                      - "Advanced reporting"
+                      - "Priority support"
+                    max_customers: 500
+                    max_users: 10
+                    is_active: true
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/public/signup:
+    post:
+      tags:
+        - Public
+      summary: Register new tenant
+      description: |
+        Register tenant baru dengan 2 options:
+        - Free Trial (use_trial: true) - Langsung aktif, no payment
+        - Paid (use_trial: false) - Butuh payment dulu
+      operationId: signUp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+            examples:
+              trial:
+                summary: Free Trial Sign Up
+                value:
+                  isp_name: "My ISP Network"
+                  subdomain: "myisp"
+                  email: "owner@myisp.com"
+                  password: "secure123"
+                  phone: "08123456789"
+                  plan_id: "550e8400-e29b-41d4-a716-446655440010"
+                  owner_name: "John Doe"
+                  use_trial: true
+              paid:
+                summary: Paid Sign Up
+                value:
+                  isp_name: "My ISP Network"
+                  subdomain: "myisp"
+                  email: "owner@myisp.com"
+                  password: "secure123"
+                  phone: "08123456789"
+                  plan_id: "550e8400-e29b-41d4-a716-446655440010"
+                  owner_name: "John Doe"
+                  use_trial: false
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/TrialSignUpResponse'
+                  - $ref: '#/components/schemas/PaidSignUpResponse'
+              examples:
+                trial:
+                  summary: Trial Response
+                  value:
+                    tenant_id: "abc123-def456-ghi789"
+                    user_id: "xyz789-uvw012-rst345"
+                    is_trial: true
+                    trial_ends: "2026-01-02"
+                    message: "Your 7-day free trial has started! You can start using the platform immediately."
+                paid:
+                  summary: Paid Response
+                  value:
+                    tenant_id: "abc123-def456-ghi789"
+                    user_id: "xyz789-uvw012-rst345"
+                    order_id: "ORD-20260102-ABC123"
+                    amount: 299000
+                    payment_url: "https://payment.example.com/pay/ORD-20260102-ABC123"
+                    is_trial: false
+                    message: "Please complete payment within 24 hours to activate your account."
+        '400':
+          description: Bad request (validation error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                subdomain_exists:
+                  summary: Subdomain already exists
+                  value:
+                    error: "subdomain already exists"
+                email_exists:
+                  summary: Email already registered
+                  value:
+                    error: "email already registered"
+                invalid_plan:
+                  summary: Invalid plan
+                  value:
+                    error: "plan not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/public/payment/callback:
+    post:
+      tags:
+        - Public
+      summary: Payment callback webhook
+      description: |
+        Webhook endpoint untuk payment gateway.
+        Dipanggil oleh payment gateway setelah payment completed.
+        **Note:** Ini bukan untuk frontend, tapi untuk payment gateway.
+      operationId: paymentCallback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentCallback'
+      responses:
+        '200':
+          description: Payment processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Payment processed successfully"
+        '400':
+          description: Invalid payment data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Plan:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Plan ID
+          example: "550e8400-e29b-41d4-a716-446655440010"
+        name:
+          type: string
+          description: Plan name
+          example: "Standard Plan"
+        slug:
+          type: string
+          description: Plan slug (URL-friendly)
+          example: "standard"
+        description:
+          type: string
+          description: Plan description
+          example: "Perfect for small ISPs with up to 100 customers"
+        price:
+          type: integer
+          description: Monthly price in IDR
+          example: 299000
+        billing_cycle:
+          type: string
+          enum: [monthly, yearly]
+          description: Billing cycle
+          example: "monthly"
+        features:
+          type: array
+          items:
+            type: string
+          description: List of features
+          example:
+            - "Up to 100 customers"
+            - "Basic reporting"
+            - "Email support"
+        max_customers:
+          type: integer
+          description: Maximum customers (-1 for unlimited)
+          example: 100
+        max_users:
+          type: integer
+          description: Maximum users (-1 for unlimited)
+          example: 3
+        is_active:
+          type: boolean
+          description: Is plan active
+          example: true
+
+    SignUpRequest:
+      type: object
+      required:
+        - isp_name
+        - subdomain
+        - email
+        - password
+        - phone
+        - plan_id
+        - owner_name
+      properties:
+        isp_name:
+          type: string
+          minLength: 3
+          maxLength: 100
+          description: ISP/Company name
+          example: "My ISP Network"
+        subdomain:
+          type: string
+          minLength: 3
+          maxLength: 20
+          pattern: '^[a-z0-9-]+$'
+          description: Subdomain (lowercase, alphanumeric, hyphens only)
+          example: "myisp"
+        email:
+          type: string
+          format: email
+          description: Owner email address
+          example: "owner@myisp.com"
+        password:
+          type: string
+          minLength: 8
+          format: password
+          description: Password (min 8 characters)
+          example: "secure123"
+        phone:
+          type: string
+          pattern: '^08\d{8,11}$'
+          description: Phone number (Indonesian format)
+          example: "08123456789"
+        plan_id:
+          type: string
+          format: uuid
+          description: Selected plan ID
+          example: "550e8400-e29b-41d4-a716-446655440010"
+        owner_name:
+          type: string
+          minLength: 3
+          maxLength: 100
+          description: Owner full name
+          example: "John Doe"
+        use_trial:
+          type: boolean
+          description: |
+            Use free trial or paid signup
+            - true: Free trial (7 days, no payment)
+            - false: Paid (requires payment)
+          example: true
+          default: false
+
+    TrialSignUpResponse:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+          description: Created tenant ID
+          example: "abc123-def456-ghi789"
+        user_id:
+          type: string
+          format: uuid
+          description: Created user ID
+          example: "xyz789-uvw012-rst345"
+        is_trial:
+          type: boolean
+          description: Is trial signup
+          example: true
+        trial_ends:
+          type: string
+          format: date
+          description: Trial end date (7 days from now)
+          example: "2026-01-02"
+        message:
+          type: string
+          description: Success message
+          example: "Your 7-day free trial has started! You can start using the platform immediately."
+
+    PaidSignUpResponse:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+          description: Created tenant ID
+          example: "abc123-def456-ghi789"
+        user_id:
+          type: string
+          format: uuid
+          description: Created user ID
+          example: "xyz789-uvw012-rst345"
+        order_id:
+          type: string
+          description: Payment order ID
+          example: "ORD-20260102-ABC123"
+        amount:
+          type: integer
+          description: Payment amount in IDR
+          example: 299000
+        payment_url:
+          type: string
+          format: uri
+          description: Payment gateway URL
+          example: "https://payment.example.com/pay/ORD-20260102-ABC123"
+        is_trial:
+          type: boolean
+          description: Is trial signup
+          example: false
+        message:
+          type: string
+          description: Success message
+          example: "Please complete payment within 24 hours to activate your account."
+
+    PaymentCallback:
+      type: object
+      required:
+        - order_id
+        - status
+        - amount
+      properties:
+        order_id:
+          type: string
+          description: Order ID
+          example: "ORD-20260102-ABC123"
+        status:
+          type: string
+          enum: [success, failed, pending]
+          description: Payment status
+          example: "success"
+        amount:
+          type: integer
+          description: Payment amount
+          example: 299000
+        payment_method:
+          type: string
+          description: Payment method used
+          example: "bank_transfer"
+        transaction_id:
+          type: string
+          description: Payment gateway transaction ID
+          example: "TRX-123456789"
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "subdomain already exists"

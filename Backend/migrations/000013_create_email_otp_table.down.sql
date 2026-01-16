@@ -1,0 +1,2 @@
+-- Drop email_otps table
+DROP TABLE IF EXISTS email_otps;

@@ -1,0 +1,336 @@
+openapi: 3.0.3
+
+info:
+  title: RT RW Net SaaS API
+  description: MVP API for RT RW Net Management System
+  version: 1.0.0
+
+servers:
+  - url: https://api.yourdomain.com/v1
+
+tags:
+  - name: Auth
+  - name: Package
+  - name: Customer
+  - name: Billing
+  - name: Mikrotik
+  - name: WhatsApp
+  - name: Dashboard
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  # ================= AUTH =================
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register new RT RW Net tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [business_name, email, password]
+              properties:
+                business_name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        201:
+          description: Tenant registered
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        200:
+          description: Login success (JWT)
+
+  # ================= PACKAGE =================
+  /packages:
+    get:
+      tags: [Package]
+      summary: List internet packages
+      responses:
+        200:
+          description: OK
+
+    post:
+      tags: [Package]
+      summary: Create internet package
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, price, download_speed, upload_speed]
+              properties:
+                name:
+                  type: string
+                price:
+                  type: number
+                download_speed:
+                  type: number
+                upload_speed:
+                  type: number
+      responses:
+        201:
+          description: Package created
+
+  /packages/{id}:
+    put:
+      tags: [Package]
+      summary: Update package
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        200:
+          description: Package updated
+
+    delete:
+      tags: [Package]
+      summary: Delete package
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Package deleted
+
+  # ================= CUSTOMER =================
+  /customers:
+    get:
+      tags: [Customer]
+      summary: List customers
+      responses:
+        200:
+          description: OK
+
+    post:
+      tags: [Customer]
+      summary: Create customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, phone, address, package_id]
+              properties:
+                name:
+                  type: string
+                phone:
+                  type: string
+                address:
+                  type: string
+                package_id:
+                  type: string
+      responses:
+        201:
+          description: Customer created
+
+  /customers/{id}:
+    put:
+      tags: [Customer]
+      summary: Update customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        200:
+          description: Customer updated
+
+    delete:
+      tags: [Customer]
+      summary: Delete customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Customer deleted
+
+  # ================= BILLING =================
+  /billings:
+    get:
+      tags: [Billing]
+      summary: List billing invoices
+      responses:
+        200:
+          description: OK
+
+    post:
+      tags: [Billing]
+      summary: Generate billing invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id, amount, due_date]
+              properties:
+                customer_id:
+                  type: string
+                amount:
+                  type: number
+                due_date:
+                  type: string
+                  format: date
+      responses:
+        201:
+          description: Billing created
+
+  /billings/{id}/pay:
+    post:
+      tags: [Billing]
+      summary: Mark billing as paid
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Billing paid
+
+  # ================= MIKROTIK =================
+  /mikrotik/connect:
+    post:
+      tags: [Mikrotik]
+      summary: Connect MikroTik router
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [host, username, password]
+              properties:
+                host:
+                  type: string
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        200:
+          description: MikroTik connected
+
+  /mikrotik/isolate/{customerId}:
+    post:
+      tags: [Mikrotik]
+      summary: Isolate customer internet
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Customer isolated
+
+  /mikrotik/open/{customerId}:
+    post:
+      tags: [Mikrotik]
+      summary: Open customer internet
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Customer opened
+
+  # ================= WHATSAPP =================
+  /whatsapp/send:
+    post:
+      tags: [WhatsApp]
+      summary: Send WhatsApp message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, message]
+              properties:
+                phone:
+                  type: string
+                message:
+                  type: string
+      responses:
+        200:
+          description: Message sent
+
+  # ================= DASHBOARD =================
+  /dashboard/summary:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard summary
+      responses:
+        200:
+          description: OK

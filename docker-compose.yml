@@ -1,0 +1,174 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # Database Services
+  # ============================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: rtrwnet-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cvkcvk12}
+      POSTGRES_DB: rtrwnet_saas
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./Backend/migrations/init_schema.sql:/docker-entrypoint-initdb.d/01_init_schema.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rtrwnet
+
+  redis:
+    image: redis:7-alpine
+    container_name: rtrwnet-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rtrwnet
+
+  # ============================================
+  # Backend API
+  # ============================================
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: rtrwnet-backend
+    restart: unless-stopped
+    environment:
+      - SERVER_PORT=8089
+      - SERVER_HOST=0.0.0.0
+      - GIN_MODE=release
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD:-cvkcvk12}
+      - DB_NAME=rtrwnet_saas
+      - DB_SSLMODE=disable
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      - VPN_SERVER_IP=${VPN_SERVER_IP:-202.10.48.155}
+      - VPN_SERVER_PORT=1194
+      - RADIUS_INTERNAL_IP=10.8.0.1
+      - ENABLE_RADIUS=true
+      - RADIUS_AUTH_PORT=1812
+      - RADIUS_ACCT_PORT=1813
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://${VPN_SERVER_IP:-202.10.48.155}:3000,http://${VPN_SERVER_IP:-202.10.48.155}:5173
+      - MIDTRANS_SERVER_KEY=${MIDTRANS_SERVER_KEY:-}
+      - MIDTRANS_CLIENT_KEY=${MIDTRANS_CLIENT_KEY:-}
+      - MIDTRANS_IS_PRODUCTION=${MIDTRANS_IS_PRODUCTION:-false}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+    ports:
+      - "8089:8089"
+      - "1812:1812/udp"
+      - "1813:1813/udp"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - rtrwnet
+
+  # ============================================
+  # Frontend - User Dashboard
+  # ============================================
+  user-dashboard:
+    build:
+      context: ./Frontend/UserDashboard
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://${VPN_SERVER_IP:-202.10.48.155}:8089/api/v1
+    container_name: rtrwnet-user-dashboard
+    restart: unless-stopped
+    ports:
+      - "5175:80"
+    depends_on:
+      - backend
+    networks:
+      - rtrwnet
+
+  # ============================================
+  # Frontend - Admin Dashboard
+  # ============================================
+  admin-dashboard:
+    build:
+      context: ./Frontend/AdminDashboard
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://${VPN_SERVER_IP:-202.10.48.155}:8089/api/v1
+    container_name: rtrwnet-admin-dashboard
+    restart: unless-stopped
+    ports:
+      - "5174:80"
+    depends_on:
+      - backend
+    networks:
+      - rtrwnet
+
+  # ============================================
+  # Frontend - Homepage
+  # ============================================
+  homepage:
+    build:
+      context: ./Frontend/HomePage
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://${VPN_SERVER_IP:-202.10.48.155}:8089/api/v1
+    container_name: rtrwnet-homepage
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - rtrwnet
+
+  # ============================================
+  # OpenVPN Server
+  # ============================================
+  openvpn:
+    image: kylemanna/openvpn
+    container_name: rtrwnet-openvpn
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "1194:1194/udp"
+    volumes:
+      - openvpn_data:/etc/openvpn
+    networks:
+      - rtrwnet
+
+volumes:
+  postgres_data:
+  redis_data:
+  openvpn_data:
+
+networks:
+  rtrwnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

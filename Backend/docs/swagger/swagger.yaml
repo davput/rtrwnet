@@ -1,0 +1,1156 @@
+basePath: /api/v1
+definitions:
+  dto.BillingDashboardResponse:
+    properties:
+      billing:
+        $ref: '#/definitions/dto.BillingDetails'
+      invoices:
+        items:
+          $ref: '#/definitions/dto.InvoiceInfo'
+        type: array
+      subscription:
+        $ref: '#/definitions/dto.SubscriptionBillingInfo'
+      tenant:
+        $ref: '#/definitions/dto.TenantBillingInfo'
+      usage:
+        $ref: '#/definitions/dto.UsageInfo'
+    type: object
+  dto.BillingDetails:
+    properties:
+      available_plans:
+        items:
+          $ref: '#/definitions/dto.PlanOption'
+        type: array
+      can_downgrade:
+        type: boolean
+      can_upgrade:
+        type: boolean
+      currency:
+        type: string
+      current_plan:
+        type: string
+      monthly_price:
+        type: number
+      next_billing:
+        type: string
+      payment_method:
+        type: string
+    type: object
+  dto.CancelSubscriptionRequest:
+    properties:
+      reason:
+        type: string
+    type: object
+  dto.CreateTenantRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+    required:
+    - email
+    - name
+    type: object
+  dto.InvoiceInfo:
+    properties:
+      amount:
+        type: number
+      download_url:
+        type: string
+      due_date:
+        type: string
+      id:
+        type: string
+      invoice_no:
+        type: string
+      issued_date:
+        type: string
+      paid_date:
+        type: string
+      status:
+        type: string
+    type: object
+  dto.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 6
+        type: string
+      tenant_id:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  dto.LogoutRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  dto.PaymentWebhookRequest:
+    properties:
+      amount:
+        type: number
+      gateway_transaction_id:
+        type: string
+      order_id:
+        type: string
+      payment_method:
+        type: string
+      signature:
+        type: string
+      status:
+        type: string
+    type: object
+  dto.PlanOption:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      is_current:
+        type: boolean
+      name:
+        type: string
+      price:
+        type: number
+      slug:
+        type: string
+    type: object
+  dto.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  dto.RegisterRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+      role:
+        enum:
+        - admin
+        - operator
+        - technician
+        - viewer
+        type: string
+      tenant_id:
+        type: string
+    required:
+    - email
+    - name
+    - password
+    - role
+    - tenant_id
+    type: object
+  dto.RegisterResponse:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      message:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+      tenant_id:
+        type: string
+    type: object
+  dto.SignUpRequest:
+    properties:
+      email:
+        type: string
+      isp_name:
+        type: string
+      owner_name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+      phone:
+        type: string
+      plan_id:
+        type: string
+      use_trial:
+        description: Enable 7-day trial
+        type: boolean
+    required:
+    - email
+    - isp_name
+    - owner_name
+    - password
+    - phone
+    - plan_id
+    type: object
+  dto.SignUpResponse:
+    properties:
+      amount:
+        type: number
+      is_trial:
+        type: boolean
+      message:
+        type: string
+      order_id:
+        type: string
+      payment_url:
+        type: string
+      tenant_id:
+        type: string
+      trial_ends:
+        type: string
+      user_id:
+        type: string
+    type: object
+  dto.SimpleLoginRequest:
+    properties:
+      password:
+        minLength: 6
+        type: string
+      username:
+        description: Now must be email
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  dto.SubscriptionBillingInfo:
+    properties:
+      auto_renew:
+        type: boolean
+      days_left:
+        type: integer
+      end_date:
+        type: string
+      id:
+        type: string
+      is_trial:
+        type: boolean
+      next_billing_date:
+        type: string
+      payment_method:
+        type: string
+      plan_id:
+        type: string
+      plan_name:
+        type: string
+      plan_slug:
+        type: string
+      start_date:
+        type: string
+      status:
+        type: string
+    type: object
+  dto.TenantBillingInfo:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+    type: object
+  dto.TenantResponse:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      message:
+        type: string
+      name:
+        type: string
+    type: object
+  dto.UpdatePaymentMethodRequest:
+    properties:
+      card_holder:
+        type: string
+      card_number:
+        type: string
+      expiry_month:
+        type: integer
+      expiry_year:
+        type: integer
+      payment_method:
+        type: string
+    required:
+    - payment_method
+    type: object
+  dto.UpdateSubscriptionRequest:
+    properties:
+      auto_renew:
+        type: boolean
+      payment_method:
+        type: string
+      plan_id:
+        type: string
+    required:
+    - plan_id
+    type: object
+  dto.UpdateTenantRequest:
+    properties:
+      is_active:
+        type: boolean
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  dto.UpdateTenantSettingsRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+    type: object
+  dto.UsageInfo:
+    properties:
+      current_period_end:
+        type: string
+      current_period_start:
+        type: string
+      days_remaining:
+        type: integer
+      days_used:
+        type: integer
+    type: object
+  response.ErrorInfo:
+    properties:
+      code:
+        type: string
+      details:
+        additionalProperties: true
+        type: object
+      message:
+        type: string
+    type: object
+  response.ErrorResponse:
+    properties:
+      data: {}
+      error:
+        $ref: '#/definitions/response.ErrorInfo'
+      message:
+        type: string
+      meta:
+        $ref: '#/definitions/response.Meta'
+      success:
+        type: boolean
+    type: object
+  response.Meta:
+    properties:
+      page:
+        type: integer
+      per_page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  response.SuccessResponse:
+    properties:
+      data: {}
+      error:
+        $ref: '#/definitions/response.ErrorInfo'
+      message:
+        type: string
+      meta:
+        $ref: '#/definitions/response.Meta'
+      success:
+        type: boolean
+    type: object
+  usecase.AuthResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      user:
+        $ref: '#/definitions/usecase.UserProfile'
+    type: object
+  usecase.TenantProfile:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+    type: object
+  usecase.TokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+    type: object
+  usecase.UserProfile:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+      tenant_id:
+        type: string
+    type: object
+host: localhost:8089
+info:
+  contact:
+    email: support@rtrwnet.com
+    name: RT RW Net Support
+  description: |-
+    API untuk sistem manajemen RT RW Net berbasis SaaS dengan multi-tenant architecture.
+
+    ## Features
+    - Multi-tenant architecture
+    - JWT authentication
+    - Free trial support (7 days)
+    - Subscription management
+    - Billing dashboard
+
+    ## Authentication
+    Gunakan Bearer token di header Authorization untuk protected endpoints.
+    Untuk tenant identification, sertakan X-Tenant-ID di header.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  title: RT RW Net SaaS Backend API
+  version: 2.0.0
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Login using tenant ID, email, and password. Requires tenant ID
+        to be provided in request body.
+      parameters:
+      - description: Login credentials with tenant ID
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/usecase.AuthResponse'
+              type: object
+        "400":
+          description: Validation error or missing tenant ID
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Invalid credentials
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Tenant or user inactive
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Standard login with tenant ID
+      tags:
+      - Authentication
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Invalidate refresh token and logout user. Only requires valid access
+        token, no tenant ID needed.
+      parameters:
+      - description: Refresh token to invalidate
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LogoutRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Logged out successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout user
+      tags:
+      - Authentication
+  /auth/me:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve authenticated user's profile information. Requires valid
+        access token.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User profile retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      - TenantID: []
+      summary: Get current user profile
+      tags:
+      - Authentication
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Get a new access token using refresh token. Refresh token must
+        be valid and not expired.
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Token refreshed successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/usecase.TokenResponse'
+              type: object
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Invalid or expired refresh token
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Refresh access token
+      tags:
+      - Authentication
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user within an existing tenant. Requires tenant
+        ID, email, password, name, and role.
+      parameters:
+      - description: User registration data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User registered successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.RegisterResponse'
+              type: object
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Tenant not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: User already exists
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Register new user
+      tags:
+      - Authentication
+  /auth/simple-login:
+    post:
+      consumes:
+      - application/json
+      description: Login using email and password without requiring tenant ID. System
+        will automatically find tenant from email.
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SimpleLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/usecase.AuthResponse'
+              type: object
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Invalid credentials
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Simple login with email only
+      tags:
+      - Authentication
+  /billing:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve complete billing information including tenant details,
+        current subscription, usage statistics, available plans, and recent invoices.
+        Requires authentication and tenant ID.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Billing dashboard retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.BillingDashboardResponse'
+              type: object
+        "401":
+          description: Unauthorized - invalid or missing token
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: No subscription found for tenant
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      - TenantID: []
+      summary: Get billing dashboard
+      tags:
+      - Billing
+  /billing/cancel:
+    post:
+      consumes:
+      - application/json
+      description: Cancel current subscription. Subscription will be marked as cancelled
+        and auto-renewal will be disabled. Optionally provide cancellation reason.
+      parameters:
+      - description: Cancellation request with optional reason
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CancelSubscriptionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Subscription cancelled successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: No subscription found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      - TenantID: []
+      summary: Cancel subscription
+      tags:
+      - Billing
+  /billing/payment-method:
+    put:
+      consumes:
+      - application/json
+      description: Update payment method for subscription. Can include credit card
+        details or other payment method information.
+      parameters:
+      - description: Payment method data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdatePaymentMethodRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Payment method updated successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Validation error - payment method required
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: No subscription found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      - TenantID: []
+      summary: Update payment method
+      tags:
+      - Billing
+  /billing/settings:
+    put:
+      consumes:
+      - application/json
+      description: Update tenant information such as name, email, or phone number.
+      parameters:
+      - description: Tenant settings data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateTenantSettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Settings updated successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Tenant not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      - TenantID: []
+      summary: Update tenant settings
+      tags:
+      - Billing
+  /billing/subscription:
+    put:
+      consumes:
+      - application/json
+      description: Change subscription plan, payment method, or auto-renewal settings.
+        If upgrading from trial, subscription will be activated immediately.
+      parameters:
+      - description: Subscription update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateSubscriptionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Subscription updated successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Invalid plan or validation error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: No subscription found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      - TenantID: []
+      summary: Update subscription plan
+      tags:
+      - Billing
+  /public/plans:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all available subscription plans with pricing and features
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Plans retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Get subscription plans
+      tags:
+      - Public
+  /public/signup:
+    post:
+      consumes:
+      - application/json
+      description: Register a new tenant (ISP) with optional 7-day free trial. Email
+        must be unique globally (one email = one tenant). Creates tenant, admin user,
+        and subscription.
+      parameters:
+      - description: Sign up request with ISP details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SignUpRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Sign up successful
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.SignUpResponse'
+              type: object
+        "400":
+          description: Validation error - check required fields
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Email already registered (TENANT_3005)
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Sign up new tenant
+      tags:
+      - Public
+  /tenants:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve list of all tenants in the system. This is an admin operation.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Tenants retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: List all tenants
+      tags:
+      - Tenants
+    post:
+      consumes:
+      - application/json
+      description: Create a new tenant with name and email. Email must be unique.
+        This is an admin operation.
+      parameters:
+      - description: Tenant creation data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateTenantRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Tenant created successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.TenantResponse'
+              type: object
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Email already exists
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Create new tenant
+      tags:
+      - Tenants
+  /tenants/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete tenant from the system. This is an admin operation and should
+        be used with caution.
+      parameters:
+      - description: Tenant ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Tenant deleted successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "404":
+          description: Tenant not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Delete tenant
+      tags:
+      - Tenants
+    get:
+      consumes:
+      - application/json
+      description: Retrieve tenant information by tenant ID
+      parameters:
+      - description: Tenant ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Tenant retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/usecase.TenantProfile'
+              type: object
+        "404":
+          description: Tenant not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Get tenant by ID
+      tags:
+      - Tenants
+    put:
+      consumes:
+      - application/json
+      description: Update tenant information including name and active status. This
+        is an admin operation.
+      parameters:
+      - description: Tenant ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Tenant update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateTenantRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Tenant updated successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.TenantResponse'
+              type: object
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Tenant not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Update tenant
+      tags:
+      - Tenants
+  /webhooks/payment:
+    post:
+      consumes:
+      - application/json
+      description: Handle payment gateway callbacks for subscription payments. Processes
+        payment status updates and activates subscriptions.
+      parameters:
+      - description: Payment webhook data from gateway
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.PaymentWebhookRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Payment processed successfully
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Invalid webhook data
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Payment gateway webhook
+      tags:
+      - Public
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+  TenantID:
+    description: Tenant ID for multi-tenant access
+    in: header
+    name: X-Tenant-ID
+    type: apiKey
+swagger: "2.0"
