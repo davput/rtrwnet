@@ -1,0 +1,272 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Status colors - Light mode */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    /* Main Background: #0B0F19 - Biru Midnight sangat gelap */
+    --background: 222 47% 7%;
+    --foreground: 210 40% 96%;
+
+    /* Cards/Sidebar: #161B26 - Lebih terang untuk elevasi */
+    --card: 220 33% 12%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 220 33% 12%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 7%;
+
+    --secondary: 220 33% 16%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 220 33% 14%;
+    --muted-foreground: 215 20% 55%;
+
+    --accent: 220 33% 18%;
+    --accent-foreground: 210 40% 96%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 210 40% 98%;
+
+    /* Borders: #2D333B - Garis tipis yang jelas */
+    --border: 215 14% 21%;
+    --input: 215 14% 21%;
+    --ring: 217 91% 60%;
+
+    /* Sidebar dengan elevasi */
+    --sidebar-background: 220 33% 12%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 222 47% 7%;
+    --sidebar-accent: 220 33% 18%;
+    --sidebar-accent-foreground: 210 40% 96%;
+    --sidebar-border: 215 14% 21%;
+    --sidebar-ring: 217 91% 60%;
+
+    /* Status colors - Desaturated untuk dark mode */
+    --success: 142 50% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 70% 55%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 70% 55%;
+    --info-foreground: 0 0% 100%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Custom scrollbar - Global */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+
+  /* Dark mode scrollbar */
+  .dark ::-webkit-scrollbar-thumb {
+    background: hsl(215 14% 22%);
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: hsl(215 14% 32%);
+  }
+
+  .dark * {
+    scrollbar-color: hsl(215 14% 22%) transparent;
+  }
+}
+
+/* Sidebar specific scrollbar - Hidden by default, show on hover */
+@layer components {
+  [data-sidebar] {
+    scrollbar-width: none;
+  }
+
+  [data-sidebar]::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  [data-sidebar]::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 9999px;
+  }
+
+  [data-sidebar]:hover::-webkit-scrollbar-thumb {
+    background: hsl(var(--sidebar-border));
+  }
+
+  .dark [data-sidebar]:hover::-webkit-scrollbar-thumb {
+    background: hsl(215 14% 28%);
+  }
+}
+
+/* Custom utility classes for status colors */
+@layer utilities {
+  .bg-success {
+    background-color: hsl(var(--success));
+  }
+  .bg-success\/10 {
+    background-color: hsl(var(--success) / 0.1);
+  }
+  .bg-success\/20 {
+    background-color: hsl(var(--success) / 0.2);
+  }
+  .text-success {
+    color: hsl(var(--success));
+  }
+  .border-success {
+    border-color: hsl(var(--success));
+  }
+
+  .bg-warning {
+    background-color: hsl(var(--warning));
+  }
+  .bg-warning\/10 {
+    background-color: hsl(var(--warning) / 0.1);
+  }
+  .bg-warning\/20 {
+    background-color: hsl(var(--warning) / 0.2);
+  }
+  .text-warning {
+    color: hsl(var(--warning));
+  }
+  .border-warning {
+    border-color: hsl(var(--warning));
+  }
+
+  .bg-info {
+    background-color: hsl(var(--info));
+  }
+  .bg-info\/10 {
+    background-color: hsl(var(--info) / 0.1);
+  }
+  .bg-info\/20 {
+    background-color: hsl(var(--info) / 0.2);
+  }
+  .text-info {
+    color: hsl(var(--info));
+  }
+  .border-info {
+    border-color: hsl(var(--info));
+  }
+}
+
+
+/* Leaflet custom styles */
+.leaflet-container {
+  font-family: 'Inter', sans-serif;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.leaflet-popup-content {
+  margin: 8px 12px;
+}
+
+.custom-marker {
+  background: transparent;
+  border: none;
+}
+
+/* Dark mode support for leaflet */
+.dark .leaflet-popup-content-wrapper {
+  background-color: hsl(224 71% 4%);
+  color: hsl(213 31% 91%);
+}
+
+.dark .leaflet-popup-tip {
+  background-color: hsl(224 71% 4%);
+}
+
+.dark .leaflet-control-zoom a {
+  background-color: hsl(224 71% 4%);
+  color: hsl(213 31% 91%);
+  border-color: hsl(216 34% 17%);
+}
+
+.dark .leaflet-control-zoom a:hover {
+  background-color: hsl(216 34% 17%);
+}
