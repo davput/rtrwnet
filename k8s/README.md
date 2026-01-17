@@ -51,18 +51,13 @@ kubectl apply -k k8s/overlays/staging
 kubectl apply -k k8s/overlays/production
 ```
 
-### Dengan envsubst (untuk variable substitution)
+### Deploy dengan custom image tag (untuk CI/CD)
 
 ```bash
-# Set environment variables
-export DOCKER_REGISTRY="your-registry.com"
-export IMAGE_TAG="v1.0.0"
-
-# Staging
-kubectl kustomize k8s/overlays/staging | envsubst | kubectl apply -f -
-
-# Production
-kubectl kustomize k8s/overlays/production | envsubst | kubectl apply -f -
+# Contoh dengan sed untuk replace image
+kubectl kustomize k8s/overlays/staging | \
+  sed 's|rtrwnet-backend:latest|your-registry/rtrwnet-backend:v1.0.0|g' | \
+  kubectl apply -f -
 ```
 
 ## Perbedaan Environment
@@ -92,5 +87,5 @@ patches:
 ## Catatan Penting
 
 1. **Secrets**: Jangan commit secrets production yang sebenarnya. Gunakan sealed-secrets atau external-secrets.
-2. **Images**: Variable `${DOCKER_REGISTRY}` dan `${IMAGE_TAG}` perlu di-substitute sebelum apply.
-3. **Folder lama**: Folder `staging/` dan `production/` yang lama bisa dihapus setelah migrasi berhasil.
+2. **Images**: Image tag di-handle oleh Jenkins pipeline menggunakan sed substitution.
+3. **Postgres Init**: ConfigMap `postgres-init` berisi SQL untuk inisialisasi database.

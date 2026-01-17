@@ -12,17 +12,3 @@ resources:
 
 commonLabels:
   env: staging
-
-images:
-  - name: rtrwnet-backend
-    newName: ${DOCKER_REGISTRY}/rtrwnet-backend
-    newTag: ${IMAGE_TAG}
-  - name: rtrwnet-admin-dashboard
-    newName: ${DOCKER_REGISTRY}/rtrwnet-admin-dashboard
-    newTag: ${IMAGE_TAG}
-  - name: rtrwnet-user-dashboard
-    newName: ${DOCKER_REGISTRY}/rtrwnet-user-dashboard
-    newTag: ${IMAGE_TAG}
-  - name: rtrwnet-homepage
-    newName: ${DOCKER_REGISTRY}/rtrwnet-homepage
-    newTag: ${IMAGE_TAG}

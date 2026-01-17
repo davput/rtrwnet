@@ -109,18 +109,16 @@ pipeline {
                 withCredentials([file(credentialsId: KUBECONFIG_CREDENTIALS, variable: 'KUBECONFIG')]) {
 
                     script {
-                        // Deploy menggunakan Kustomize dengan image substitution
+                        // Deploy menggunakan Kustomize dengan image override via command line
                         sh """
-                        cd ${env.K8S_DIR}
-                        kustomize edit set image \\
-                            rtrwnet-backend=${DOCKER_REPO}/rtrwnet-backend:${IMAGE_TAG} \\
-                            rtrwnet-admin-dashboard=${DOCKER_REPO}/rtrwnet-admin-dashboard:${IMAGE_TAG} \\
-                            rtrwnet-user-dashboard=${DOCKER_REPO}/rtrwnet-user-dashboard:${IMAGE_TAG} \\
-                            rtrwnet-homepage=${DOCKER_REPO}/rtrwnet-homepage:${IMAGE_TAG}
+                        kubectl kustomize ${env.K8S_DIR} \\
+                            --load-restrictor LoadRestrictionsNone | \\
+                        sed 's|rtrwnet-backend:latest|${DOCKER_REPO}/rtrwnet-backend:${IMAGE_TAG}|g' | \\
+                        sed 's|rtrwnet-admin-dashboard:latest|${DOCKER_REPO}/rtrwnet-admin-dashboard:${IMAGE_TAG}|g' | \\
+                        sed 's|rtrwnet-user-dashboard:latest|${DOCKER_REPO}/rtrwnet-user-dashboard:${IMAGE_TAG}|g' | \\
+                        sed 's|rtrwnet-homepage:latest|${DOCKER_REPO}/rtrwnet-homepage:${IMAGE_TAG}|g' | \\
+                        kubectl apply -f -
                         """
-
-                        // Apply semua resources dengan Kustomize
-                        sh "kubectl apply -k ${env.K8S_DIR}"
 
                         // Rollout restart hanya untuk komponen yang dipilih
                         if (params.DEPLOY_BACKEND) {
