@@ -30,11 +30,11 @@ pipeline {
                     if (params.ENVIRONMENT == 'production') {
                         env.NAMESPACE = 'rtrwnet-prod'
                         env.API_URL = 'https://api.fureup.my.id/api/v1'
-                        env.K8S_DIR = 'k8s/production'
+                        env.K8S_DIR = 'k8s/overlays/production'
                     } else {
                         env.NAMESPACE = 'rtrwnet-staging'
                         env.API_URL = 'https://api-staging.fureup.my.id/api/v1'
-                        env.K8S_DIR = 'k8s/staging'
+                        env.K8S_DIR = 'k8s/overlays/staging'
                     }
                 }
             }
@@ -109,47 +109,32 @@ pipeline {
                 withCredentials([file(credentialsId: KUBECONFIG_CREDENTIALS, variable: 'KUBECONFIG')]) {
 
                     script {
-
+                        // Deploy menggunakan Kustomize dengan image substitution
                         sh """
-                        kubectl apply -f ${env.K8S_DIR}/namespace.yaml
-                        kubectl apply -f ${env.K8S_DIR}/configmap.yaml
-                        kubectl apply -f ${env.K8S_DIR}/secrets.yaml
+                        cd ${env.K8S_DIR}
+                        kustomize edit set image \\
+                            rtrwnet-backend=${DOCKER_REPO}/rtrwnet-backend:${IMAGE_TAG} \\
+                            rtrwnet-admin-dashboard=${DOCKER_REPO}/rtrwnet-admin-dashboard:${IMAGE_TAG} \\
+                            rtrwnet-user-dashboard=${DOCKER_REPO}/rtrwnet-user-dashboard:${IMAGE_TAG} \\
+                            rtrwnet-homepage=${DOCKER_REPO}/rtrwnet-homepage:${IMAGE_TAG}
                         """
 
-                        sh """
-                        kubectl apply -f ${env.K8S_DIR}/postgres.yaml
-                        kubectl apply -f ${env.K8S_DIR}/redis.yaml
-                        """
+                        // Apply semua resources dengan Kustomize
+                        sh "kubectl apply -k ${env.K8S_DIR}"
 
+                        // Rollout restart hanya untuk komponen yang dipilih
                         if (params.DEPLOY_BACKEND) {
-                            sh """
-                            sed 's|\\\${DOCKER_REPO}|${DOCKER_REPO}|g; s|\\\${IMAGE_TAG}|${IMAGE_TAG}|g' \
-                            ${env.K8S_DIR}/backend.yaml | kubectl apply -f -
-                            """
+                            sh "kubectl rollout restart deployment/backend -n ${env.NAMESPACE}"
                         }
-
                         if (params.DEPLOY_USER_DASHBOARD) {
-                            sh """
-                            sed 's|\\\${DOCKER_REPO}|${DOCKER_REPO}|g; s|\\\${IMAGE_TAG}|${IMAGE_TAG}|g' \
-                            ${env.K8S_DIR}/frontend-user.yaml | kubectl apply -f -
-                            """
+                            sh "kubectl rollout restart deployment/frontend-user -n ${env.NAMESPACE}"
                         }
-
                         if (params.DEPLOY_ADMIN_DASHBOARD) {
-                            sh """
-                            sed 's|\\\${DOCKER_REPO}|${DOCKER_REPO}|g; s|\\\${IMAGE_TAG}|${IMAGE_TAG}|g' \
-                            ${env.K8S_DIR}/frontend-admin.yaml | kubectl apply -f -
-                            """
+                            sh "kubectl rollout restart deployment/frontend-admin -n ${env.NAMESPACE}"
                         }
-
                         if (params.DEPLOY_HOMEPAGE) {
-                            sh """
-                            sed 's|\\\${DOCKER_REPO}|${DOCKER_REPO}|g; s|\\\${IMAGE_TAG}|${IMAGE_TAG}|g' \
-                            ${env.K8S_DIR}/frontend-homepage.yaml | kubectl apply -f -
-                            """
+                            sh "kubectl rollout restart deployment/frontend-homepage -n ${env.NAMESPACE}"
                         }
-
-                        sh "kubectl apply -f ${env.K8S_DIR}/ingress.yaml"
                     }
                 }
             }
