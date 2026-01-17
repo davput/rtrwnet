@@ -102,7 +102,7 @@ pipeline {
         stage('Push Images') {
             steps {
                 script {
-                    docker.withRegistry("https://${DOCKER_REGISTRY}", DOCKER_CREDENTIALS) {
+                    docker.withRegistry("https://index.docker.io/v1/", DOCKER_CREDENTIALS) {
                         if (params.DEPLOY_BACKEND) {
                             docker.image("${DOCKER_REGISTRY}/rtrwnet-backend:${IMAGE_TAG}").push()
                             docker.image("${DOCKER_REGISTRY}/rtrwnet-backend:${IMAGE_TAG}").push('latest')
