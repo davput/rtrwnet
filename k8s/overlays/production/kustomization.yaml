@@ -1,0 +1,52 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: rtrwnet-prod
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - configmap.yaml
+  - secrets.yaml
+  - ingress.yaml
+
+commonLabels:
+  env: production
+
+images:
+  - name: rtrwnet-backend
+    newName: ${DOCKER_REGISTRY}/rtrwnet-backend
+    newTag: ${IMAGE_TAG}
+  - name: rtrwnet-admin-dashboard
+    newName: ${DOCKER_REGISTRY}/rtrwnet-admin-dashboard
+    newTag: ${IMAGE_TAG}
+  - name: rtrwnet-user-dashboard
+    newName: ${DOCKER_REGISTRY}/rtrwnet-user-dashboard
+    newTag: ${IMAGE_TAG}
+  - name: rtrwnet-homepage
+    newName: ${DOCKER_REGISTRY}/rtrwnet-homepage
+    newTag: ${IMAGE_TAG}
+
+# Production-specific patches (contoh: lebih banyak replicas)
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+    target:
+      kind: Deployment
+      name: backend
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+    target:
+      kind: Deployment
+      name: frontend-homepage
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+    target:
+      kind: Deployment
+      name: frontend-user

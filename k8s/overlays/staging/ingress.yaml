@@ -1,0 +1,57 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rtrwnet-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  tls:
+    - hosts:
+        - staging.fureup.my.id
+        - app-staging.fureup.my.id
+        - admin-staging.fureup.my.id
+        - api-staging.fureup.my.id
+      secretName: rtrwnet-staging-tls
+  rules:
+    - host: staging.fureup.my.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-homepage-service
+                port:
+                  number: 80
+    - host: app-staging.fureup.my.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-user-service
+                port:
+                  number: 80
+    - host: admin-staging.fureup.my.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-admin-service
+                port:
+                  number: 80
+    - host: api-staging.fureup.my.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-service
+                port:
+                  number: 8089
