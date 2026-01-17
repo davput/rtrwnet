@@ -10,5 +10,7 @@ resources:
   - secrets.yaml
   - ingress.yaml
 
-commonLabels:
-  env: staging
+labels:
+  - pairs:
+      env: staging
+    includeSelectors: false

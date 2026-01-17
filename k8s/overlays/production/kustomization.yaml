@@ -10,8 +10,10 @@ resources:
   - secrets.yaml
   - ingress.yaml
 
-commonLabels:
-  env: production
+labels:
+  - pairs:
+      env: production
+    includeSelectors: false
 
 # Production-specific patches (contoh: lebih banyak replicas)
 patches:

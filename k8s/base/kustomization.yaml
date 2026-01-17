@@ -9,6 +9,3 @@ resources:
   - postgres.yaml
   - postgres-init-configmap.yaml
   - redis.yaml
-
-commonLabels:
-  app: rtrwnet
