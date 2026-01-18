@@ -14,6 +14,7 @@ pipeline {
         booleanParam(name: 'DEPLOY_USER_DASHBOARD', defaultValue: true, description: 'Deploy User Dashboard')
         booleanParam(name: 'DEPLOY_ADMIN_DASHBOARD', defaultValue: true, description: 'Deploy Admin Dashboard')
         booleanParam(name: 'DEPLOY_HOMEPAGE', defaultValue: true, description: 'Deploy Homepage')
+        booleanParam(name: 'DEPLOY_MONITORING', defaultValue: false, description: 'Deploy Monitoring (Prometheus + Grafana)')
     }
 
     stages {
@@ -123,6 +124,11 @@ pipeline {
                 withCredentials([file(credentialsId: KUBECONFIG_CREDENTIALS, variable: 'KUBECONFIG')]) {
 
                     script {
+                        // Deploy Monitoring jika dipilih
+                        if (params.DEPLOY_MONITORING) {
+                            sh "kubectl apply -k k8s/base/monitoring"
+                        }
+
                         // Hitung checksum configmap dan secrets untuk auto-restart jika berubah
                         def configChecksum = sh(
                             script: "cat ${env.K8S_DIR}/configmap.yaml ${env.K8S_DIR}/secrets.yaml | sha256sum | cut -d' ' -f1",
