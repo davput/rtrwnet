@@ -66,6 +66,11 @@ data:
             action: replace
             target_label: kubernetes_pod_name
 
+      # Kube State Metrics
+      - job_name: 'kube-state-metrics'
+        static_configs:
+          - targets: ['kube-state-metrics.monitoring.svc.cluster.local:8080']
+
       # RTRWNet Backend (staging)
       - job_name: 'rtrwnet-backend-staging'
         kubernetes_sd_configs:
