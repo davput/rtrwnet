@@ -17,3 +17,16 @@ data:
   RADIUS_AUTH_PORT: "1812"
   RADIUS_ACCT_PORT: "1813"
   CORS_ALLOWED_ORIGINS: "https://staging.fureup.my.id,https://app-staging.fureup.my.id,https://admin-staging.fureup.my.id"
+  # SMTP
+  SMTP_HOST: "smtp.gmail.com"
+  SMTP_PORT: "587"
+  SMTP_USERNAME: "davput36@gmail.com"
+  SMTP_FROM: "davput36@gmail.com"
+  # Midtrans
+  MIDTRANS_IS_PRODUCTION: "false"
+  # Cloudflare R2
+  R2_ACCOUNT_ID: "3fc6c8530bfd214b02b0f4ebceffce59"
+  R2_BUCKET_NAME: "websass"
+  R2_PUBLIC_URL: "https://pub-d96bc6b2ab634a15b29c8083a2e7eb5b.r2.dev"
+  # VPN
+  VPN_SERVER_IP: "202.10.48.155"

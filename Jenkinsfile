@@ -43,6 +43,10 @@ pipeline {
         stage('Build Images') {
             steps {
                 script {
+                    def backendImage
+                    def userDashboardImage
+                    def adminDashboardImage
+                    def homepageImage
 
                     if (params.DEPLOY_BACKEND) {
                         backendImage = docker.build(
@@ -71,6 +75,12 @@ pipeline {
                             "--build-arg VITE_API_BASE_URL=${env.API_URL} ./Frontend/HomePage"
                         )
                     }
+
+                    // Store in env for next stage
+                    env.BACKEND_IMAGE = backendImage?.imageName()
+                    env.USER_DASHBOARD_IMAGE = userDashboardImage?.imageName()
+                    env.ADMIN_DASHBOARD_IMAGE = adminDashboardImage?.imageName()
+                    env.HOMEPAGE_IMAGE = homepageImage?.imageName()
                 }
             }
         }
@@ -81,23 +91,27 @@ pipeline {
                     docker.withRegistry("https://index.docker.io/v1/", DOCKER_CREDENTIALS) {
 
                         if (params.DEPLOY_BACKEND) {
-                            backendImage.push()
-                            backendImage.push("latest")
+                            def img = docker.image("${DOCKER_REPO}/rtrwnet-backend:${IMAGE_TAG}")
+                            img.push()
+                            img.push("latest")
                         }
 
                         if (params.DEPLOY_USER_DASHBOARD) {
-                            userDashboardImage.push()
-                            userDashboardImage.push("latest")
+                            def img = docker.image("${DOCKER_REPO}/rtrwnet-user-dashboard:${IMAGE_TAG}")
+                            img.push()
+                            img.push("latest")
                         }
 
                         if (params.DEPLOY_ADMIN_DASHBOARD) {
-                            adminDashboardImage.push()
-                            adminDashboardImage.push("latest")
+                            def img = docker.image("${DOCKER_REPO}/rtrwnet-admin-dashboard:${IMAGE_TAG}")
+                            img.push()
+                            img.push("latest")
                         }
 
                         if (params.DEPLOY_HOMEPAGE) {
-                            homepageImage.push()
-                            homepageImage.push("latest")
+                            def img = docker.image("${DOCKER_REPO}/rtrwnet-homepage:${IMAGE_TAG}")
+                            img.push()
+                            img.push("latest")
                         }
                     }
                 }
@@ -109,7 +123,13 @@ pipeline {
                 withCredentials([file(credentialsId: KUBECONFIG_CREDENTIALS, variable: 'KUBECONFIG')]) {
 
                     script {
-                        // Deploy menggunakan Kustomize dengan image override via command line
+                        // Hitung checksum configmap dan secrets untuk auto-restart jika berubah
+                        def configChecksum = sh(
+                            script: "cat ${env.K8S_DIR}/configmap.yaml ${env.K8S_DIR}/secrets.yaml | sha256sum | cut -d' ' -f1",
+                            returnStdout: true
+                        ).trim()
+
+                        // Deploy menggunakan Kustomize dengan image override dan config checksum
                         sh """
                         kubectl kustomize ${env.K8S_DIR} \\
                             --load-restrictor LoadRestrictionsNone | \\
@@ -118,6 +138,11 @@ pipeline {
                         sed 's|rtrwnet-user-dashboard:latest|${DOCKER_REPO}/rtrwnet-user-dashboard:${IMAGE_TAG}|g' | \\
                         sed 's|rtrwnet-homepage:latest|${DOCKER_REPO}/rtrwnet-homepage:${IMAGE_TAG}|g' | \\
                         kubectl apply -f -
+                        """
+
+                        // Patch backend deployment dengan config checksum (auto-restart jika config berubah)
+                        sh """
+                        kubectl patch deployment backend -n ${env.NAMESPACE} -p '{"spec":{"template":{"metadata":{"annotations":{"config-checksum":"${configChecksum}"}}}}}'
                         """
 
                         // Rollout restart hanya untuk komponen yang dipilih
