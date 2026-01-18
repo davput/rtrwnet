@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/rtrwnet/saas-backend/internal/delivery/http/handler"
 	"github.com/rtrwnet/saas-backend/internal/infrastructure/cache"
@@ -203,6 +204,9 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 			"message": "RT/RW Net SaaS Backend is running",
 		})
 	})
+
+	// Prometheus metrics endpoint
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// Swagger documentation
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
