@@ -18,9 +18,6 @@ COPY ./freeradius/queries/postgresql/queries.conf /etc/raddb/mods-config/sql/mai
 # Enable SQL module
 RUN ln -sf /etc/raddb/mods-available/sql /etc/raddb/mods-enabled/sql
 
-# Set permissions
-RUN chown -R freerad:freerad /etc/raddb
-
 # Expose RADIUS ports
 EXPOSE 1812/udp 1813/udp
 
