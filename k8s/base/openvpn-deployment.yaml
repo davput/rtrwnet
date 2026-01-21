@@ -9,48 +9,43 @@ spec:
   selector:
     matchLabels:
       app: openvpn
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
         app: openvpn
     spec:
-      initContainers:
-      - name: openvpn-init
-        image: kylemanna/openvpn:latest
-        command: ["/bin/sh", "-c"]
-        args:
-          - |
-            if [ ! -f /etc/openvpn/openvpn.conf ]; then
-              echo "Initializing OpenVPN config..."
-              ovpn_genconfig -u udp://openvpn.rtrwnet-staging.svc.cluster.local
-              echo "rtrwnet" | ovpn_initpki nopass
-            else
-              echo "OpenVPN already initialized"
-            fi
-        volumeMounts:
-        - name: openvpn-data
-          mountPath: /etc/openvpn
-        securityContext:
-          capabilities:
-            add:
-            - NET_ADMIN
       containers:
       - name: openvpn
-        image: kylemanna/openvpn:latest
+        image: davaputra/rtrwnet-openvpn:latest
         ports:
         - containerPort: 1194
           protocol: UDP
           name: openvpn
         env:
+        - name: OVPN_SERVER_URL
+          value: "udp://vpn.fureup.my.id"
+        - name: OVPN_NETWORK
+          value: "10.8.0.0"
+        - name: OVPN_NETMASK
+          value: "255.255.255.0"
+        - name: OVPN_DNS1
+          value: "8.8.8.8"
+        - name: OVPN_DNS2
+          value: "8.8.4.4"
         - name: TZ
           value: "Asia/Jakarta"
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
+          privileged: true
         volumeMounts:
         - name: openvpn-data
           mountPath: /etc/openvpn
+        - name: dev-net-tun
+          mountPath: /dev/net/tun
         resources:
           requests:
             memory: "128Mi"
@@ -58,10 +53,32 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "200m"
+        livenessProbe:
+          exec:
+            command:
+            - pgrep
+            - openvpn
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - pgrep
+            - openvpn
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
       volumes:
       - name: openvpn-data
         persistentVolumeClaim:
           claimName: openvpn-pvc
+      - name: dev-net-tun
+        hostPath:
+          path: /dev/net/tun
+          type: CharDevice
 ---
 apiVersion: v1
 kind: Service

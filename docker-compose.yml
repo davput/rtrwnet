@@ -167,18 +167,33 @@ services:
       - rtrwnet
 
   # ============================================
-  # OpenVPN Server
+  # OpenVPN Server (Auto-Init)
   # ============================================
   openvpn:
-    image: kylemanna/openvpn
+    build:
+      context: ./Backend
+      dockerfile: openvpn/Dockerfile
     container_name: rtrwnet-openvpn
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
     ports:
       - "1194:1194/udp"
+    environment:
+      - OVPN_SERVER_URL=udp://${VPN_SERVER_IP:-vpn.fureup.my.id}
+      - OVPN_NETWORK=10.8.0.0
+      - OVPN_NETMASK=255.255.255.0
+      - OVPN_DNS1=8.8.8.8
+      - OVPN_DNS2=8.8.4.4
+      - TZ=Asia/Jakarta
     volumes:
       - openvpn_data:/etc/openvpn
+    healthcheck:
+      test: ["CMD", "pgrep", "openvpn"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks:
       - rtrwnet
 

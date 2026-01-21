@@ -15,7 +15,7 @@ pipeline {
         booleanParam(name: 'DEPLOY_ADMIN_DASHBOARD', defaultValue: true, description: 'Deploy Admin Dashboard')
         booleanParam(name: 'DEPLOY_HOMEPAGE', defaultValue: true, description: 'Deploy Homepage')
         booleanParam(name: 'DEPLOY_FREERADIUS', defaultValue: true, description: 'Deploy FreeRADIUS')
-        booleanParam(name: 'DEPLOY_OPENVPN', defaultValue: true, description: 'Deploy OpenVPN')
+        booleanParam(name: 'DEPLOY_OPENVPN', defaultValue: true, description: 'Deploy OpenVPN (auto-init PKI)')
         booleanParam(name: 'DEPLOY_MONITORING', defaultValue: false, description: 'Deploy Monitoring (Prometheus + Grafana)')
     }
 
@@ -51,6 +51,7 @@ pipeline {
                     def adminDashboardImage
                     def homepageImage
                     def freeradiusImage
+                    def openvpnImage
 
                     if (params.DEPLOY_BACKEND) {
                         backendImage = docker.build(
@@ -87,12 +88,20 @@ pipeline {
                         )
                     }
 
+                    if (params.DEPLOY_OPENVPN) {
+                        openvpnImage = docker.build(
+                            "${DOCKER_REPO}/rtrwnet-openvpn:${IMAGE_TAG}",
+                            "-f ./Backend/openvpn/Dockerfile ./Backend"
+                        )
+                    }
+
                     // Store in env for next stage
                     env.BACKEND_IMAGE = backendImage?.imageName()
                     env.USER_DASHBOARD_IMAGE = userDashboardImage?.imageName()
                     env.ADMIN_DASHBOARD_IMAGE = adminDashboardImage?.imageName()
                     env.HOMEPAGE_IMAGE = homepageImage?.imageName()
                     env.FREERADIUS_IMAGE = freeradiusImage?.imageName()
+                    env.OPENVPN_IMAGE = openvpnImage?.imageName()
                 }
             }
         }
@@ -128,6 +137,12 @@ pipeline {
 
                         if (params.DEPLOY_FREERADIUS) {
                             def img = docker.image("${DOCKER_REPO}/rtrwnet-freeradius:${IMAGE_TAG}")
+                            img.push()
+                            img.push("latest")
+                        }
+
+                        if (params.DEPLOY_OPENVPN) {
+                            def img = docker.image("${DOCKER_REPO}/rtrwnet-openvpn:${IMAGE_TAG}")
                             img.push()
                             img.push("latest")
                         }
