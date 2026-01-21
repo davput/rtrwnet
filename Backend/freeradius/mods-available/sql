@@ -4,12 +4,12 @@ sql {
     
     dialect = "postgresql"
     
-    # Connection info
-    server = "postgres"
-    port = 5432
-    login = "postgres"
-    password = "cvkcvk12"
-    radius_db = "rtrwnet_saas"
+    # Connection info - use environment variables
+    server = "${env:DB_HOST:-postgres}"
+    port = ${env:DB_PORT:-5432}
+    login = "${env:DB_USER:-postgres}"
+    password = "${env:DB_PASSWORD:-cvkcvk12}"
+    radius_db = "${env:DB_NAME:-rtrwnet_saas}"
     
     # Connection pool
     pool {

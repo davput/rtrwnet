@@ -14,6 +14,26 @@ spec:
       labels:
         app: openvpn
     spec:
+      initContainers:
+      - name: openvpn-init
+        image: kylemanna/openvpn:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            if [ ! -f /etc/openvpn/openvpn.conf ]; then
+              echo "Initializing OpenVPN config..."
+              ovpn_genconfig -u udp://openvpn.rtrwnet-staging.svc.cluster.local
+              echo "rtrwnet" | ovpn_initpki nopass
+            else
+              echo "OpenVPN already initialized"
+            fi
+        volumeMounts:
+        - name: openvpn-data
+          mountPath: /etc/openvpn
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
       containers:
       - name: openvpn
         image: kylemanna/openvpn:latest
@@ -38,22 +58,6 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "200m"
-        livenessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - "ps aux | grep openvpn | grep -v grep"
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        readinessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - "ps aux | grep openvpn | grep -v grep"
-          initialDelaySeconds: 10
-          periodSeconds: 10
       volumes:
       - name: openvpn-data
         persistentVolumeClaim:
