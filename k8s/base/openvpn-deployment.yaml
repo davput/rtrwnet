@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openvpn
+  labels:
+    app: openvpn
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openvpn
+  template:
+    metadata:
+      labels:
+        app: openvpn
+    spec:
+      containers:
+      - name: openvpn
+        image: kylemanna/openvpn:latest
+        ports:
+        - containerPort: 1194
+          protocol: UDP
+          name: openvpn
+        env:
+        - name: TZ
+          value: "Asia/Jakarta"
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+        volumeMounts:
+        - name: openvpn-data
+          mountPath: /etc/openvpn
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep openvpn | grep -v grep"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep openvpn | grep -v grep"
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: openvpn-data
+        persistentVolumeClaim:
+          claimName: openvpn-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openvpn
+  labels:
+    app: openvpn
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 1194
+    targetPort: 1194
+    protocol: UDP
+    name: openvpn
+  selector:
+    app: openvpn
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openvpn-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

@@ -14,6 +14,8 @@ pipeline {
         booleanParam(name: 'DEPLOY_USER_DASHBOARD', defaultValue: true, description: 'Deploy User Dashboard')
         booleanParam(name: 'DEPLOY_ADMIN_DASHBOARD', defaultValue: true, description: 'Deploy Admin Dashboard')
         booleanParam(name: 'DEPLOY_HOMEPAGE', defaultValue: true, description: 'Deploy Homepage')
+        booleanParam(name: 'DEPLOY_FREERADIUS', defaultValue: true, description: 'Deploy FreeRADIUS')
+        booleanParam(name: 'DEPLOY_OPENVPN', defaultValue: true, description: 'Deploy OpenVPN')
         booleanParam(name: 'DEPLOY_MONITORING', defaultValue: false, description: 'Deploy Monitoring (Prometheus + Grafana)')
     }
 
@@ -48,6 +50,7 @@ pipeline {
                     def userDashboardImage
                     def adminDashboardImage
                     def homepageImage
+                    def freeradiusImage
 
                     if (params.DEPLOY_BACKEND) {
                         backendImage = docker.build(
@@ -77,11 +80,19 @@ pipeline {
                         )
                     }
 
+                    if (params.DEPLOY_FREERADIUS) {
+                        freeradiusImage = docker.build(
+                            "${DOCKER_REPO}/rtrwnet-freeradius:${IMAGE_TAG}",
+                            "-f ./Backend/freeradius/Dockerfile ./Backend"
+                        )
+                    }
+
                     // Store in env for next stage
                     env.BACKEND_IMAGE = backendImage?.imageName()
                     env.USER_DASHBOARD_IMAGE = userDashboardImage?.imageName()
                     env.ADMIN_DASHBOARD_IMAGE = adminDashboardImage?.imageName()
                     env.HOMEPAGE_IMAGE = homepageImage?.imageName()
+                    env.FREERADIUS_IMAGE = freeradiusImage?.imageName()
                 }
             }
         }
@@ -111,6 +122,12 @@ pipeline {
 
                         if (params.DEPLOY_HOMEPAGE) {
                             def img = docker.image("${DOCKER_REPO}/rtrwnet-homepage:${IMAGE_TAG}")
+                            img.push()
+                            img.push("latest")
+                        }
+
+                        if (params.DEPLOY_FREERADIUS) {
+                            def img = docker.image("${DOCKER_REPO}/rtrwnet-freeradius:${IMAGE_TAG}")
                             img.push()
                             img.push("latest")
                         }
@@ -164,6 +181,12 @@ pipeline {
                         if (params.DEPLOY_HOMEPAGE) {
                             sh "kubectl rollout restart deployment/frontend-homepage -n ${env.NAMESPACE}"
                         }
+                        if (params.DEPLOY_FREERADIUS) {
+                            sh "kubectl rollout restart deployment/freeradius -n ${env.NAMESPACE}"
+                        }
+                        if (params.DEPLOY_OPENVPN) {
+                            sh "kubectl rollout restart deployment/openvpn -n ${env.NAMESPACE}"
+                        }
                     }
                 }
             }
@@ -178,6 +201,8 @@ pipeline {
                     kubectl rollout status deployment/frontend-user -n ${env.NAMESPACE} --timeout=300s || true
                     kubectl rollout status deployment/frontend-admin -n ${env.NAMESPACE} --timeout=300s || true
                     kubectl rollout status deployment/frontend-homepage -n ${env.NAMESPACE} --timeout=300s || true
+                    kubectl rollout status deployment/freeradius -n ${env.NAMESPACE} --timeout=300s || true
+                    kubectl rollout status deployment/openvpn -n ${env.NAMESPACE} --timeout=300s || true
 
                     kubectl get pods -n ${env.NAMESPACE}
                     kubectl get svc -n ${env.NAMESPACE}

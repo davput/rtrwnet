@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: freeradius
+  labels:
+    app: freeradius
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: freeradius
+  template:
+    metadata:
+      labels:
+        app: freeradius
+    spec:
+      containers:
+      - name: freeradius
+        image: davaputra/rtrwnet-freeradius:latest
+        ports:
+        - containerPort: 1812
+          protocol: UDP
+          name: radius-auth
+        - containerPort: 1813
+          protocol: UDP
+          name: radius-acct
+        env:
+        - name: TZ
+          value: "Asia/Jakarta"
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: DB_PORT
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: DB_PASSWORD
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: DB_NAME
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep radiusd | grep -v grep"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep radiusd | grep -v grep"
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: freeradius
+  labels:
+    app: freeradius
+spec:
+  type: ClusterIP
+  ports:
+  - port: 1812
+    targetPort: 1812
+    protocol: UDP
+    name: radius-auth
+  - port: 1813
+    targetPort: 1813
+    protocol: UDP
+    name: radius-acct
+  selector:
+    app: freeradius

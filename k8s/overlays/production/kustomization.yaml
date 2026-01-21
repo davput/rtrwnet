@@ -3,38 +3,34 @@ kind: Kustomization
 
 namespace: rtrwnet-prod
 
-resources:
+bases:
   - ../../base
-  - namespace.yaml
+
+resources:
   - configmap.yaml
   - secrets.yaml
-  - ingress.yaml
 
-labels:
-  - pairs:
-      env: production
-    includeSelectors: false
+patchesStrategicMerge:
+  - backend-patch.yaml
+  - freeradius-patch.yaml
+  - openvpn-patch.yaml
 
-# Production-specific patches (contoh: lebih banyak replicas)
-patches:
-  - patch: |-
-      - op: replace
-        path: /spec/replicas
-        value: 3
-    target:
-      kind: Deployment
-      name: backend
-  - patch: |-
-      - op: replace
-        path: /spec/replicas
-        value: 3
-    target:
-      kind: Deployment
-      name: frontend-homepage
-  - patch: |-
-      - op: replace
-        path: /spec/replicas
-        value: 3
-    target:
-      kind: Deployment
-      name: frontend-user
+images:
+  - name: davaputra/rtrwnet-backend
+    newTag: latest
+  - name: davaputra/rtrwnet-user-dashboard
+    newTag: latest
+  - name: davaputra/rtrwnet-admin-dashboard
+    newTag: latest
+  - name: davaputra/rtrwnet-homepage
+    newTag: latest
+  - name: davaputra/rtrwnet-freeradius
+    newTag: latest
+
+replicas:
+  - name: backend
+    count: 2
+  - name: freeradius
+    count: 2
+  - name: openvpn
+    count: 1

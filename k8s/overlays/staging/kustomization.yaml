@@ -3,14 +3,26 @@ kind: Kustomization
 
 namespace: rtrwnet-staging
 
-resources:
+bases:
   - ../../base
-  - namespace.yaml
+
+resources:
   - configmap.yaml
   - secrets.yaml
-  - ingress.yaml
 
-labels:
-  - pairs:
-      env: staging
-    includeSelectors: false
+patchesStrategicMerge:
+  - backend-patch.yaml
+  - freeradius-patch.yaml
+  - openvpn-patch.yaml
+
+images:
+  - name: davaputra/rtrwnet-backend
+    newTag: latest
+  - name: davaputra/rtrwnet-user-dashboard
+    newTag: latest
+  - name: davaputra/rtrwnet-admin-dashboard
+    newTag: latest
+  - name: davaputra/rtrwnet-homepage
+    newTag: latest
+  - name: davaputra/rtrwnet-freeradius
+    newTag: latest
