@@ -3,6 +3,8 @@ set -e
 
 PKI_DIR="/etc/openvpn/pki"
 LOG_DIR="/var/log/openvpn"
+CONFIG_FILE="/etc/openvpn/server.conf"
+AUTH_SCRIPT="/etc/openvpn/auth-user.sh"
 
 echo "============================================"
 echo "OpenVPN Server - Username/Password Auth"
@@ -10,6 +12,100 @@ echo "============================================"
 
 # Create log directory
 mkdir -p $LOG_DIR
+
+# Copy config files if not exist (PVC might be empty)
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo ">>> Copying server.conf to PVC..."
+    cat > $CONFIG_FILE << 'SERVERCONF'
+# OpenVPN Server - Username/Password Auth (No Client Certificate)
+port 1194
+proto udp
+dev tun
+
+# Server network
+server 10.8.0.0 255.255.255.0
+topology subnet
+
+# Certificates (server only - clients use username/password)
+ca /etc/openvpn/pki/ca.crt
+cert /etc/openvpn/pki/server.crt
+key /etc/openvpn/pki/server.key
+dh /etc/openvpn/pki/dh.pem
+
+# Username/Password authentication
+auth-user-pass-verify /etc/openvpn/auth-user.sh via-env
+script-security 3
+username-as-common-name
+
+# NO client certificate required
+verify-client-cert none
+
+# Security
+cipher AES-256-CBC
+auth SHA256
+
+# Performance
+keepalive 10 120
+persist-key
+persist-tun
+
+# Logging
+status /var/log/openvpn/status.log 10
+log-append /var/log/openvpn/openvpn.log
+verb 3
+
+# User/Group
+user nobody
+group nogroup
+
+# Client settings
+push "route 10.8.0.0 255.255.255.0"
+push "dhcp-option DNS 8.8.8.8"
+push "dhcp-option DNS 8.8.4.4"
+
+# Allow multiple clients with same username
+duplicate-cn
+
+# Client-to-client
+client-to-client
+
+# Max clients
+max-clients 100
+SERVERCONF
+fi
+
+# Copy auth script if not exist
+if [ ! -f "$AUTH_SCRIPT" ]; then
+    echo ">>> Copying auth-user.sh to PVC..."
+    cat > $AUTH_SCRIPT << 'AUTHSCRIPT'
+#!/bin/bash
+# OpenVPN Username/Password Authentication Script
+USERNAME="$username"
+PASSWORD="$password"
+
+echo "$(date): Auth attempt for user: $USERNAME" >> /var/log/openvpn/auth.log
+
+# Allow any user starting with "rtrw" with password >= 8 chars
+if [[ "$USERNAME" == rtrw* ]] && [ ${#PASSWORD} -ge 8 ]; then
+    echo "$(date): Auth SUCCESS for user: $USERNAME" >> /var/log/openvpn/auth.log
+    exit 0
+fi
+
+# Check users file
+if [ -f "/etc/openvpn/users.txt" ]; then
+    while IFS=: read -r stored_user stored_pass; do
+        if [ "$USERNAME" = "$stored_user" ] && [ "$PASSWORD" = "$stored_pass" ]; then
+            echo "$(date): Auth SUCCESS for user: $USERNAME" >> /var/log/openvpn/auth.log
+            exit 0
+        fi
+    done < "/etc/openvpn/users.txt"
+fi
+
+echo "$(date): Auth FAILED for user: $USERNAME" >> /var/log/openvpn/auth.log
+exit 1
+AUTHSCRIPT
+    chmod +x $AUTH_SCRIPT
+fi
 
 # Check if PKI already exists
 if [ ! -f "$PKI_DIR/ca.crt" ]; then
@@ -61,8 +157,6 @@ iptables -A FORWARD -o tun0 -j ACCEPT
 if [ ! -f "/etc/openvpn/users.txt" ]; then
     echo ">>> Creating default users file..."
     cat > /etc/openvpn/users.txt << 'EOF'
-# Format: username:password
-# Add your VPN users here
 admin:admin123
 test:test123
 EOF
