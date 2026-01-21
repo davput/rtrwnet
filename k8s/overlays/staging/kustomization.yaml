@@ -3,17 +3,24 @@ kind: Kustomization
 
 namespace: rtrwnet-staging
 
-bases:
-  - ../../base
-
 resources:
+  - ../../base
   - configmap.yaml
   - secrets.yaml
 
-patchesStrategicMerge:
-  - backend-patch.yaml
-  - freeradius-patch.yaml
-  - openvpn-patch.yaml
+patches:
+  - path: backend-patch.yaml
+    target:
+      kind: Deployment
+      name: backend
+  - path: freeradius-patch.yaml
+    target:
+      kind: Deployment
+      name: freeradius
+  - path: openvpn-patch.yaml
+    target:
+      kind: Deployment
+      name: openvpn
 
 images:
   - name: davaputra/rtrwnet-backend

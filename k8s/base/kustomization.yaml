@@ -3,12 +3,12 @@ kind: Kustomization
 
 resources:
   - namespace.yaml
-  - postgres-deployment.yaml
-  - redis-deployment.yaml
-  - backend-deployment.yaml
-  - frontend-user-deployment.yaml
-  - frontend-admin-deployment.yaml
-  - frontend-homepage-deployment.yaml
+  - postgres.yaml
+  - redis.yaml
+  - backend.yaml
+  - frontend-user.yaml
+  - frontend-admin.yaml
+  - frontend-homepage.yaml
   - freeradius-deployment.yaml
   - openvpn-deployment.yaml
   - postgres-init-configmap.yaml
