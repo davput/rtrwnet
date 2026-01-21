@@ -1,28 +1,22 @@
 # FreeRADIUS with PostgreSQL support
-FROM freeradius/freeradius-server:3.2-alpine
+FROM freeradius/freeradius-server:latest-3.2-alpine
 
-# Install PostgreSQL client and development libraries
+# Install PostgreSQL client
 RUN apk add --no-cache \
-    postgresql-client \
-    postgresql-dev \
-    gcc \
-    musl-dev \
-    make
+    postgresql-client
+
+# Create necessary directories
+RUN mkdir -p /etc/raddb/mods-config/sql/main/postgresql
 
 # Copy custom configuration files
 COPY ./freeradius/radiusd.conf /etc/raddb/radiusd.conf
 COPY ./freeradius/clients.conf /etc/raddb/clients.conf
 COPY ./freeradius/mods-available/sql /etc/raddb/mods-available/sql
 COPY ./freeradius/sites-available/default /etc/raddb/sites-available/default
+COPY ./freeradius/queries/postgresql/queries.conf /etc/raddb/mods-config/sql/main/postgresql/queries.conf
 
 # Enable SQL module
 RUN ln -sf /etc/raddb/mods-available/sql /etc/raddb/mods-enabled/sql
-
-# Create directory for SQL queries
-RUN mkdir -p /etc/raddb/mods-config/sql/main/postgresql
-
-# Copy PostgreSQL queries
-COPY ./freeradius/queries/postgresql/* /etc/raddb/mods-config/sql/main/postgresql/
 
 # Set permissions
 RUN chown -R freerad:freerad /etc/raddb
@@ -30,5 +24,5 @@ RUN chown -R freerad:freerad /etc/raddb
 # Expose RADIUS ports
 EXPOSE 1812/udp 1813/udp
 
-# Run FreeRADIUS in foreground
+# Run FreeRADIUS in foreground with debug
 CMD ["radiusd", "-f", "-X"]
