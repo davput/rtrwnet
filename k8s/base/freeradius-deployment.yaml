@@ -32,15 +32,9 @@ spec:
         - name: DB_PORT
           value: "5432"
         - name: DB_USER
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: DB_USER
+          value: "postgres"
         - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: DB_PASSWORD
+          value: "cvkcvk12"
         - name: DB_NAME
           value: "rtrwnet_saas"
         resources:
