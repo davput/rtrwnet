@@ -22,7 +22,6 @@ require (
 	golang.org/x/crypto v0.46.0
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/gorm v1.25.5
-	layeh.com/radius v0.0.0-20231213012653-1006025d24f8
 )
 
 require (

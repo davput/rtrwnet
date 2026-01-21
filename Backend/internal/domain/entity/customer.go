@@ -50,6 +50,11 @@ type Customer struct {
 	IPAddress string     `gorm:"column:ip_address" json:"ip_address,omitempty"`
 	LastSeen  *time.Time `gorm:"column:last_seen" json:"last_seen,omitempty"`
 	
+	// Hotspot access
+	HotspotEnabled  bool   `gorm:"column:hotspot_enabled;default:false" json:"hotspot_enabled"`
+	HotspotUsername string `gorm:"column:hotspot_username" json:"hotspot_username,omitempty"`
+	HotspotPassword string `gorm:"column:hotspot_password" json:"hotspot_password,omitempty"` // plain text for customer view
+	
 	Status           string     `gorm:"not null;default:'pending_activation'" json:"status"`
 	InstallationDate time.Time  `json:"installation_date"`
 	DueDate          int        `gorm:"not null;default:15" json:"due_date"` // day of month

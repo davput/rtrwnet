@@ -1,12 +1,15 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { CustomerTable } from "./CustomerTable";
+import { CustomerForm } from "./CustomerForm";
+import { CustomerSettings } from "./CustomerSettings";
 import { useCustomers, useCustomerStats } from "./customer.store";
 import { ImportExportDialog } from "./ImportExportDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UserPlus, FileSpreadsheet, Users, UserCheck, UserX, Clock, Wifi } from "lucide-react";
+import { UserPlus, FileSpreadsheet, Users, UserCheck, UserX, Clock, Wifi, Settings } from "lucide-react";
 import { PlanLimitBanner, LimitedButton } from "@/components/plan";
 import { usePlanLimits } from "@/contexts/PlanLimitsContext";
 import { useCustomerEvents } from "@/hooks/useCustomerEvents";
@@ -107,6 +110,8 @@ export function CustomersPage() {
   const { stats, loading: statsLoading, refresh: refreshStats } = useCustomerStats();
   const { refresh: refreshPlanLimits } = usePlanLimits();
   const [showImportExport, setShowImportExport] = useState(false);
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Combined refresh function - memoized to prevent unnecessary re-renders
   const handleRefresh = useCallback(() => {
@@ -138,9 +143,13 @@ export function CustomersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
         <h1 className="text-2xl font-bold tracking-tight">Manajemen Pelanggan</h1>
         <div className="flex space-x-2">
+          <Button variant="outline" onClick={() => setShowSettings(true)}>
+            <Settings className="mr-2 h-4 w-4" />
+            Pengaturan
+          </Button>
           <LimitedButton 
             limitType="customer" 
-            onClick={() => navigate("/pelanggan/tambah")}
+            onClick={() => setShowAddCustomer(true)}
           >
             <UserPlus className="mr-2 h-4 w-4" />
             Tambah Pelanggan
@@ -174,6 +183,23 @@ export function CustomersPage() {
         onOpenChange={setShowImportExport}
         onImportSuccess={handleFullRefresh}
       />
+
+      <Dialog open={showAddCustomer} onOpenChange={setShowAddCustomer}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Tambah Pelanggan Baru</DialogTitle>
+          </DialogHeader>
+          <CustomerForm 
+            mode="create" 
+            onSuccess={() => {
+              setShowAddCustomer(false);
+              handleFullRefresh();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <CustomerSettings open={showSettings} onOpenChange={setShowSettings} />
     </div>
   );
 }

@@ -84,6 +84,8 @@ export const DashboardSidebar = memo(function DashboardSidebar() {
     const path = currentPath;
     if (path.includes("/pelanggan") || path.includes("/paket-internet")) {
       setOpenMenu("pelanggan");
+    } else if (path.includes("/hotspot")) {
+      setOpenMenu("hotspot");
     }
   }, [currentPath, isCollapsed]);
 
@@ -185,11 +187,11 @@ export const DashboardSidebar = memo(function DashboardSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Menu Utama */}
+        {/* Layanan */}
         <SidebarGroup className="py-1">
           {!isCollapsed && (
             <SidebarGroupLabel className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest px-2 mb-1">
-              Menu Utama
+              Layanan
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
@@ -223,11 +225,6 @@ export const DashboardSidebar = memo(function DashboardSidebar() {
                             Paket Internet
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link to="/pelanggan/pengaturan" className={cn("cursor-pointer", currentPath === "/pelanggan/pengaturan" && "bg-primary/10 text-primary")}>
-                            Pengaturan
-                          </Link>
-                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </SidebarMenuItem>
@@ -243,7 +240,7 @@ export const DashboardSidebar = memo(function DashboardSidebar() {
                           onClick={(e) => { e.stopPropagation(); handleMenuToggle("pelanggan"); }} 
                           className={cn(
                             "relative transition-all duration-200",
-                            (isActive("/pelanggan") || isActive("/paket-internet")|| isActive("/pengaturan-pelanggan")) && 
+                            (isActive("/pelanggan") || isActive("/paket-internet")) && 
                             "bg-primary/10 text-primary font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-6 before:w-1 before:rounded-r-full before:bg-primary"
                           )}
                         >
@@ -284,16 +281,131 @@ export const DashboardSidebar = memo(function DashboardSidebar() {
                               </Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )
+              ) : renderDisabledMenuItem(<Users size={18} strokeWidth={2} />, "Pelanggan")}
+
+              {/* Hotspot Menu */}
+              {hasMikrotikIntegration ? (
+                isCollapsed ? (
+                  <SidebarMenuItem>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <SidebarMenuButton 
+                          className={cn(
+                            "relative transition-all duration-200",
+                            isActive("/hotspot") && 
+                            "bg-primary/10 text-primary font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-6 before:w-1 before:rounded-r-full before:bg-primary"
+                          )} 
+                          tooltip="Hotspot"
+                        >
+                          <Wifi size={18} strokeWidth={2} />
+                          <span>Hotspot</span>
+                        </SidebarMenuButton>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent side="right" align="start" className="w-48 ml-2">
+                        <DropdownMenuItem asChild>
+                          <Link to="/hotspot/paket" className={cn("cursor-pointer", isActive("/hotspot/paket") && "bg-primary/10 text-primary")}>
+                            Paket Hotspot
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to="/hotspot/users" className={cn("cursor-pointer", isActive("/hotspot/users") && "bg-primary/10 text-primary")}>
+                            User & Voucher
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to="/hotspot/sesi" className={cn("cursor-pointer", isActive("/hotspot/sesi") && "bg-primary/10 text-primary")}>
+                            Sesi Aktif
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to="/hotspot/portal" className={cn("cursor-pointer", isActive("/hotspot/portal") && "bg-primary/10 text-primary")}>
+                            Captive Portal
+                          </Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </SidebarMenuItem>
+                ) : (
+                  <Collapsible 
+                    open={openMenu === "hotspot"} 
+                    onOpenChange={(isOpen) => { if (!isOpen || openMenu !== "hotspot") handleMenuToggle("hotspot"); }} 
+                    className="group/collapsible"
+                  >
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton 
+                          onClick={(e) => { e.stopPropagation(); handleMenuToggle("hotspot"); }} 
+                          className={cn(
+                            "relative transition-all duration-200",
+                            isActive("/hotspot") && 
+                            "bg-primary/10 text-primary font-medium before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-6 before:w-1 before:rounded-r-full before:bg-primary"
+                          )}
+                        >
+                          <Wifi size={18} strokeWidth={2} />
+                          <span>Hotspot</span>
+                          <ChevronDown 
+                            className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" 
+                            size={14} 
+                            strokeWidth={2.5} 
+                          />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="animate-in slide-in-from-top-1 duration-200">
+                        <SidebarMenuSub className="ml-5 mt-1 pl-3 border-l-2 border-primary/20">
                           <SidebarMenuSubItem>
                             <SidebarMenuSubButton 
                               asChild 
                               className={cn(
                                 "transition-all duration-150 text-muted-foreground hover:text-foreground",
-                                currentPath === "/pengaturan-pelanggan" && "bg-primary/10 text-primary font-medium"
+                                isActive("/hotspot/paket") && "bg-primary/10 text-primary font-medium"
                               )}
                             >
-                              <Link to="/pengaturan-pelanggan" onClick={(e) => e.stopPropagation()}>
-                                <span>Pengaturan</span>
+                              <Link to="/hotspot/paket" onClick={(e) => e.stopPropagation()}>
+                                <span>Paket Hotspot</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton 
+                              asChild 
+                              className={cn(
+                                "transition-all duration-150 text-muted-foreground hover:text-foreground",
+                                isActive("/hotspot/users") && "bg-primary/10 text-primary font-medium"
+                              )}
+                            >
+                              <Link to="/hotspot/users" onClick={(e) => e.stopPropagation()}>
+                                <span>User & Voucher</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton 
+                              asChild 
+                              className={cn(
+                                "transition-all duration-150 text-muted-foreground hover:text-foreground",
+                                isActive("/hotspot/sesi") && "bg-primary/10 text-primary font-medium"
+                              )}
+                            >
+                              <Link to="/hotspot/sesi" onClick={(e) => e.stopPropagation()}>
+                                <span>Sesi Aktif</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton 
+                              asChild 
+                              className={cn(
+                                "transition-all duration-150 text-muted-foreground hover:text-foreground",
+                                isActive("/hotspot/portal") && "bg-primary/10 text-primary font-medium"
+                              )}
+                            >
+                              <Link to="/hotspot/portal" onClick={(e) => e.stopPropagation()}>
+                                <span>Captive Portal</span>
                               </Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
@@ -302,7 +414,7 @@ export const DashboardSidebar = memo(function DashboardSidebar() {
                     </SidebarMenuItem>
                   </Collapsible>
                 )
-              ) : renderDisabledMenuItem(<Users size={18} strokeWidth={2} />, "Pelanggan")}
+              ) : renderDisabledMenuItem(<Wifi size={18} strokeWidth={2} />, "Hotspot")}
 
               {/* Pembayaran */}
               {hasBillingManagement ? (
@@ -321,7 +433,19 @@ export const DashboardSidebar = memo(function DashboardSidebar() {
                 label="Tiket Support" 
                 isActiveCheck={isActive("/tiket")} 
               />
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
+        {/* Jaringan & Infrastruktur */}
+        <SidebarGroup className="py-1">
+          {!isCollapsed && (
+            <SidebarGroupLabel className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest px-2 mb-1">
+              Jaringan
+            </SidebarGroupLabel>
+          )}
+          <SidebarGroupContent>
+            <SidebarMenu>
               {/* Infrastruktur */}
               {hasNetworkMonitoring ? (
                 <MenuItemLink 
@@ -355,11 +479,11 @@ export const DashboardSidebar = memo(function DashboardSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Billing & Pembayaran */}
+        {/* Billing & Pengaturan */}
         <SidebarGroup className="py-1">
           {!isCollapsed && (
             <SidebarGroupLabel className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest px-2 mb-1">
-              Billing
+              Lainnya
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
@@ -370,43 +494,17 @@ export const DashboardSidebar = memo(function DashboardSidebar() {
                 label="Billing" 
                 isActiveCheck={isActive("/billing")} 
               />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Pengaturan */}
-        <SidebarGroup className="py-1">
-          {!isCollapsed && (
-            <SidebarGroupLabel className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest px-2 mb-1">
-              Pengaturan
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <MenuItemLink 
-                to="/pengaturan" 
-                icon={<Settings size={18} strokeWidth={2} />} 
-                label="Pengaturan" 
-                isActiveCheck={isActive("/pengaturan")} 
-              />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Support */}
-        <SidebarGroup className="py-1">
-          {!isCollapsed && (
-            <SidebarGroupLabel className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest px-2 mb-1">
-              Support
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
               <MenuItemLink 
                 to="/support-tickets" 
                 icon={<HelpCircle size={18} strokeWidth={2} />} 
                 label="Bantuan" 
                 isActiveCheck={isActive("/support-tickets")} 
+              />
+              <MenuItemLink 
+                to="/pengaturan" 
+                icon={<Settings size={18} strokeWidth={2} />} 
+                label="Pengaturan" 
+                isActiveCheck={isActive("/pengaturan")} 
               />
             </SidebarMenu>
           </SidebarGroupContent>

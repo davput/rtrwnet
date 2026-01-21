@@ -1,0 +1,93 @@
+# Default virtual server configuration
+server default {
+    listen {
+        type = auth
+        ipaddr = *
+        port = 1812
+        limit {
+            max_connections = 16
+            lifetime = 0
+            idle_timeout = 30
+        }
+    }
+    
+    listen {
+        type = acct
+        ipaddr = *
+        port = 1813
+        limit {
+            max_connections = 16
+            lifetime = 0
+            idle_timeout = 30
+        }
+    }
+    
+    # Authorization
+    authorize {
+        filter_username
+        preprocess
+        
+        # Check SQL for user
+        sql
+        
+        # If user found, continue
+        if (ok || updated) {
+            update control {
+                Auth-Type := Accept
+            }
+        }
+        
+        pap
+    }
+    
+    # Authentication
+    authenticate {
+        Auth-Type PAP {
+            pap
+        }
+        
+        Auth-Type CHAP {
+            chap
+        }
+        
+        Auth-Type MS-CHAP {
+            mschap
+        }
+    }
+    
+    # Post-Auth
+    post-auth {
+        sql
+        
+        Post-Auth-Type REJECT {
+            sql
+            attr_filter.access_reject
+        }
+    }
+    
+    # Accounting
+    accounting {
+        detail
+        sql
+        
+        # Update session table
+        if (ok) {
+            update reply {
+                &Reply-Message := "Accounting OK"
+            }
+        }
+    }
+    
+    # Session
+    session {
+        sql
+    }
+    
+    # Pre-Proxy
+    pre-proxy {
+    }
+    
+    # Post-Proxy
+    post-proxy {
+    }
+}

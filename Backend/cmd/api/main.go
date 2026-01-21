@@ -1,17 +1,22 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rtrwnet/saas-backend/internal/delivery/http/router"
 	"github.com/rtrwnet/saas-backend/internal/infrastructure/cache"
 	"github.com/rtrwnet/saas-backend/internal/infrastructure/database"
 	"github.com/rtrwnet/saas-backend/internal/infrastructure/radius"
+	"github.com/rtrwnet/saas-backend/internal/repository/postgres"
+	"github.com/rtrwnet/saas-backend/internal/usecase"
 	"github.com/rtrwnet/saas-backend/pkg/config"
 	"github.com/rtrwnet/saas-backend/pkg/logger"
+	"gorm.io/gorm"
 
 	_ "github.com/rtrwnet/saas-backend/docs/swagger" // Import generated docs
 )
@@ -90,8 +95,9 @@ func main() {
 
 	// Start RADIUS server if enabled
 	enableRadius := os.Getenv("ENABLE_RADIUS")
+	var radiusServer *radius.RadiusServer
 	if enableRadius == "true" || enableRadius == "1" {
-		radiusServer := radius.NewRadiusServer(db, &radius.Config{
+		radiusServer = radius.NewRadiusServer(db, &radius.Config{
 			AuthPort: 1812,
 			AcctPort: 1813,
 		})
@@ -102,6 +108,11 @@ func main() {
 		}
 	}
 
+	// Start hotspot background jobs if RADIUS is enabled
+	if radiusServer != nil {
+		startHotspotBackgroundJobs(db, radiusServer)
+	}
+
 	// Start server
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
 	logger.Info("Starting server on %s", addr)
@@ -110,4 +121,48 @@ func main() {
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+// startHotspotBackgroundJobs starts background jobs for hotspot management
+func startHotspotBackgroundJobs(db *gorm.DB, radiusServer *radius.RadiusServer) {
+	// Initialize repositories
+	voucherRepo := postgres.NewHotspotVoucherRepository(db)
+	packageRepo := postgres.NewHotspotPackageRepository(db)
+
+	// Initialize session service
+	sessionService := usecase.NewHotspotSessionService(voucherRepo, packageRepo, radiusServer)
+
+	// Start session expiration checker (every 60 seconds)
+	go func() {
+		ticker := time.NewTicker(60 * time.Second)
+		defer ticker.Stop()
+
+		logger.Info("Hotspot session expiration checker started (interval: 60s)")
+
+		for range ticker.C {
+			ctx := context.Background()
+			if err := sessionService.CheckExpiredSessions(ctx); err != nil {
+				logger.Error("Session expiration checker error: %v", err)
+			}
+		}
+	}()
+
+	// Start voucher status updater (every 5 minutes)
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+
+		logger.Info("Voucher status updater started (interval: 5m)")
+
+		for range ticker.C {
+			ctx := context.Background()
+			if err := voucherRepo.UpdateExpiredVouchers(ctx); err != nil {
+				logger.Error("Voucher status updater error: %v", err)
+			} else {
+				logger.Info("Voucher status updated successfully")
+			}
+		}
+	}()
+
+	logger.Info("Hotspot background jobs started successfully")
 }

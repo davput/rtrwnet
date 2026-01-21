@@ -95,6 +95,8 @@ type CustomerSummary struct {
 	MonthlyFee       float64          `json:"monthly_fee"`
 	Status           string           `json:"status"`
 	IsOnline         bool             `json:"is_online"`
+	HotspotEnabled   bool             `json:"hotspot_enabled"`
+	HotspotUsername  string           `json:"hotspot_username,omitempty"`
 	InstallationDate time.Time        `json:"installation_date"`
 	LastPayment      *time.Time       `json:"last_payment,omitempty"`
 	PaymentStatus    string           `json:"payment_status"` // paid, pending, overdue
@@ -329,3 +331,10 @@ type UpdateOnboardingRequest struct {
 }
 
 // Plan Limits DTOs moved to subscription_dto.go
+
+// Customer Hotspot Response
+type CustomerHotspotResponse struct {
+	Enabled  bool   `json:"enabled"`
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+}

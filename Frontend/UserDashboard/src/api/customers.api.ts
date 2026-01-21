@@ -45,3 +45,27 @@ export const customersApi = {
   deleteCustomer: (id: string) =>
     api.delete<ApiResponse>(`/customers/${id}`),
 };
+
+
+// Customer Hotspot API
+export const customerHotspotApi = {
+  enableHotspot: async (customerId: string) => {
+    const response = await apiClient.post(`/customers/${customerId}/hotspot/enable`);
+    return response.data.data;
+  },
+
+  disableHotspot: async (customerId: string) => {
+    const response = await apiClient.post(`/customers/${customerId}/hotspot/disable`);
+    return response.data.data;
+  },
+
+  regeneratePassword: async (customerId: string) => {
+    const response = await apiClient.post(`/customers/${customerId}/hotspot/regenerate-password`);
+    return response.data.data;
+  },
+
+  getCredentials: async (customerId: string) => {
+    const response = await apiClient.get(`/customers/${customerId}/hotspot/credentials`);
+    return response.data.data;
+  },
+};

@@ -37,6 +37,12 @@ import SupportTickets from "./pages/SupportTickets";
 import SupportTicketDetail from "./pages/SupportTicketDetail";
 import NotificationsPage from "./pages/NotificationsPage";
 
+// Hotspot pages
+import HotspotPackages from "./pages/HotspotPackages";
+import HotspotUsers from "./pages/HotspotUsers";
+import HotspotSessions from "./pages/HotspotSessions";
+import HotspotPortal from "./pages/HotspotPortal";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -102,15 +108,9 @@ const App = () => (
                   <CustomerForm mode="edit" />
                 </FeatureProtectedRoute>
               } />
-              <Route path="/pengaturan-pelanggan" element={
-                <FeatureProtectedRoute feature="customer_management">
-                  <CustomerSettings />
-                </FeatureProtectedRoute>
-              } />
               
               {/* Service Plans */}
               <Route path="/paket-internet" element={<ServicePlansPage />} />
-              <Route path="/paket-internet/tambah" element={<ServicePlanForm />} />
               <Route path="/paket-internet/katalog" element={<ServicePlansCatalogPage />} />
               <Route path="/paket-internet/:id" element={<ServicePlanDetailPage />} />
               
@@ -151,6 +151,28 @@ const App = () => (
               <Route path="/radius" element={
                 <FeatureProtectedRoute feature="mikrotik_integration">
                   <RadiusPage />
+                </FeatureProtectedRoute>
+              } />
+
+              {/* Hotspot - requires hotspot_management feature */}
+              <Route path="/hotspot/paket" element={
+                <FeatureProtectedRoute feature="hotspot_management">
+                  <HotspotPackages />
+                </FeatureProtectedRoute>
+              } />
+              <Route path="/hotspot/users" element={
+                <FeatureProtectedRoute feature="hotspot_management">
+                  <HotspotUsers />
+                </FeatureProtectedRoute>
+              } />
+              <Route path="/hotspot/sesi" element={
+                <FeatureProtectedRoute feature="hotspot_management">
+                  <HotspotSessions />
+                </FeatureProtectedRoute>
+              } />
+              <Route path="/hotspot/portal" element={
+                <FeatureProtectedRoute feature="hotspot_management">
+                  <HotspotPortal />
                 </FeatureProtectedRoute>
               } />
               

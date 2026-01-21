@@ -69,6 +69,11 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 	adminTenantRepo := postgres.NewAdminTenantRepository(cfg.DB)
 	otpRepo := postgres.NewOTPRepository(cfg.DB)
 
+	// Hotspot repositories
+	hotspotPackageRepo := postgres.NewHotspotPackageRepository(cfg.DB)
+	hotspotVoucherRepo := postgres.NewHotspotVoucherRepository(cfg.DB)
+	captivePortalRepo := postgres.NewCaptivePortalRepository(cfg.DB)
+
 	// Initialize middleware
 	tenantMiddleware := middleware.NewTenantMiddleware(tenantRepo)
 	authMiddleware := middleware.NewAuthMiddleware(userRepo, &cfg.Config.JWT)
@@ -88,6 +93,15 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 	settingsService := usecase.NewSettingsService(settingsRepo, userRepo)
 	radiusService := usecase.NewRadiusService(cfg.DB)
 	vpnService := usecase.NewVPNService(cfg.DB)
+
+	// Hotspot services
+	hotspotPackageService := usecase.NewHotspotPackageService(hotspotPackageRepo)
+	hotspotVoucherService := usecase.NewHotspotVoucherService(hotspotVoucherRepo, hotspotPackageRepo)
+	captivePortalService := usecase.NewCaptivePortalService(captivePortalRepo, hotspotVoucherRepo, hotspotPackageRepo)
+	
+	// Note: hotspotSessionService requires RADIUS server which is initialized separately
+	// For now, we'll create it with nil RADIUS server (will be updated when RADIUS is enabled)
+	hotspotSessionService := usecase.NewHotspotSessionService(hotspotVoucherRepo, hotspotPackageRepo, nil)
 
 	// Initialize Midtrans client
 	midtransConfig := &payment.MidtransConfig{
@@ -169,6 +183,13 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 	vpnHandler := handler.NewVPNHandler(vpnService)
 	customerEventsHandler := handler.NewCustomerEventsHandler(cfg.Config.JWT.Secret)
 
+	// Hotspot handlers
+	hotspotPackageHandler := handler.NewHotspotPackageHandler(hotspotPackageService)
+	hotspotVoucherHandler := handler.NewHotspotVoucherHandler(hotspotVoucherService)
+	captivePortalHandler := handler.NewCaptivePortalHandler(captivePortalService)
+	hotspotSessionHandler := handler.NewHotspotSessionHandler(hotspotSessionService)
+	customerHotspotHandler := handler.NewCustomerHotspotHandler(customerRepo)
+
 	// Set up customer event broadcaster for RADIUS server
 	radiusModule.SetCustomerEventBroadcaster(handler.GetBroadcaster())
 
@@ -229,6 +250,10 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 			public.GET("/payment-methods", subscriptionHandler.GetPaymentMethods)
 			public.POST("/payments", subscriptionHandler.CreatePayment)
 			public.GET("/payments/:order_id/status", subscriptionHandler.GetPaymentStatus)
+
+			// Captive portal public routes
+			public.GET("/hotspot/portal/:tenant_id", captivePortalHandler.GetPortalPage)
+			public.POST("/hotspot/login", captivePortalHandler.AuthenticateUser)
 		}
 
 		// Webhook routes
@@ -401,6 +426,12 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 				customers.POST("/:id/suspend", dashboardHandler.SuspendCustomer)
 				customers.POST("/:id/terminate", dashboardHandler.TerminateCustomer)
 				
+				// Customer hotspot management
+				customers.POST("/:id/hotspot/enable", customerHotspotHandler.EnableHotspot)
+				customers.POST("/:id/hotspot/disable", customerHotspotHandler.DisableHotspot)
+				customers.POST("/:id/hotspot/regenerate-password", customerHotspotHandler.RegenerateHotspotPassword)
+				customers.GET("/:id/hotspot/credentials", customerHotspotHandler.GetHotspotCredentials)
+				
 				// Export/Import
 				customers.GET("/export", exportHandler.ExportCustomers)
 				customers.GET("/template", exportHandler.DownloadTemplate)
@@ -539,16 +570,45 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 			vpn.Use(planLimitMiddleware.CheckFeature("mikrotik_integration"))
 			{
 				// Generate MikroTik script with VPN + RADIUS config
-				vpn.GET("/mikrotik-script/:nas_id", vpnHandler.GenerateMikroTikScript)
+				vpn.GET("/mikrotik-script/:id", vpnHandler.GenerateMikroTikScript)
 				
 				// OpenVPN client config
-				vpn.GET("/client-config/:nas_id", vpnHandler.GetClientConfig)
-				vpn.GET("/download/:nas_id", vpnHandler.DownloadClientConfig)
+				vpn.GET("/client-config/:id", vpnHandler.GetClientConfig)
+				vpn.GET("/download-ovpn/:id", vpnHandler.DownloadOVPNFile)
 				
 				// VPN connections management
 				vpn.GET("/connections", vpnHandler.ListVPNConnections)
 				vpn.POST("/connections", vpnHandler.CreateVPNConnection)
 				vpn.DELETE("/connections/:id", vpnHandler.DeleteVPNConnection)
+			}
+
+			// ============================================
+			// HOTSPOT VOUCHER SYSTEM ROUTES
+			// ============================================
+			hotspot := protected.Group("/hotspot")
+			hotspot.Use(planLimitMiddleware.CheckFeature("hotspot_management"))
+			{
+				// Package management
+				hotspot.GET("/packages", hotspotPackageHandler.ListPackages)
+				hotspot.POST("/packages", hotspotPackageHandler.CreatePackage)
+				hotspot.GET("/packages/:id", hotspotPackageHandler.GetPackage)
+				hotspot.PUT("/packages/:id", hotspotPackageHandler.UpdatePackage)
+				hotspot.DELETE("/packages/:id", hotspotPackageHandler.DeletePackage)
+
+				// Voucher management
+				hotspot.POST("/vouchers/generate", hotspotVoucherHandler.GenerateVouchers)
+				hotspot.GET("/vouchers", hotspotVoucherHandler.ListVouchers)
+				hotspot.GET("/vouchers/stats", hotspotVoucherHandler.GetVoucherStats)
+				hotspot.GET("/vouchers/:id", hotspotVoucherHandler.GetVoucher)
+				hotspot.DELETE("/vouchers/:id", hotspotVoucherHandler.DeleteVoucher)
+
+				// Session monitoring
+				hotspot.GET("/sessions", hotspotSessionHandler.GetActiveSessions)
+				hotspot.POST("/sessions/:id/disconnect", hotspotSessionHandler.DisconnectSession)
+
+				// Captive portal settings
+				hotspot.GET("/portal/settings", captivePortalHandler.GetPortalSettings)
+				hotspot.PUT("/portal/settings", captivePortalHandler.UpdatePortalSettings)
 			}
 			
 			// Billing routes

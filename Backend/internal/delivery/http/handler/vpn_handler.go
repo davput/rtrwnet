@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
+	"github.com/rtrwnet/saas-backend/internal/middleware"
 	"github.com/rtrwnet/saas-backend/internal/usecase"
+	"github.com/rtrwnet/saas-backend/pkg/errors"
 	"github.com/rtrwnet/saas-backend/pkg/response"
 )
 
@@ -19,157 +19,247 @@ func NewVPNHandler(vpnService usecase.VPNService) *VPNHandler {
 }
 
 // GenerateMikroTikScript generates a complete MikroTik script for VPN + RADIUS setup
-// @Summary Generate MikroTik Script
-// @Description Generate a complete RouterOS script for OpenVPN client and RADIUS configuration
-// @Tags vpn
+// @Summary Generate MikroTik setup script
+// @Description Generates a complete MikroTik RouterOS script that includes OpenVPN client configuration and RADIUS setup
+// @Tags VPN
+// @Accept json
 // @Produce json
-// @Param X-Tenant-ID header string true "Tenant ID"
-// @Param nas_id path string true "NAS ID"
-// @Success 200 {object} response.Response{data=object}
+// @Param id path string true "NAS ID"
+// @Success 200 {object} response.Response{data=MikroTikScriptResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Failure 500 {object} response.Response
 // @Security BearerAuth
-// @Router /vpn/mikrotik-script/{nas_id} [get]
+// @Router /tenant/vpn/mikrotik-script/{id} [get]
 func (h *VPNHandler) GenerateMikroTikScript(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
-	nasID := c.Param("nas_id")
+	tenantID, err := middleware.GetTenantIDFromContext(c)
+	if err != nil {
+		response.ErrorFromAppError(c, err.(*errors.AppError))
+		return
+	}
+
+	nasID := c.Param("id")
+	if nasID == "" {
+		response.BadRequest(c, "VAL_2003", "NAS ID is required", nil)
+		return
+	}
 
 	script, err := h.vpnService.GenerateMikroTikScript(c.Request.Context(), tenantID, nasID)
 	if err != nil {
-		response.SimpleError(c, http.StatusInternalServerError, "Failed to generate script", err.Error())
+		if err == errors.ErrNotFound {
+			response.NotFound(c, "NAS_4001", "NAS not found")
+			return
+		}
+		response.InternalServerError(c, "SRV_9001", "Failed to generate MikroTik script")
 		return
 	}
 
-	response.Success(c, http.StatusOK, "MikroTik script generated", map[string]interface{}{
-		"script": script,
-		"instructions": []string{
-			"1. Copy the script above",
-			"2. Open MikroTik Winbox or Terminal",
-			"3. Paste and execute the script",
-			"4. Import certificates via System > Certificates > Import",
-			"5. Verify VPN connection with /interface ovpn-client print",
-			"6. Test RADIUS with /radius print and /ping to RADIUS server",
+	// Get client config for additional info
+	clientConfig, _ := h.vpnService.GenerateClientConfig(c.Request.Context(), tenantID, nasID)
+
+	resp := MikroTikScriptResponse{
+		Script:     script,
+		ServerIP:   clientConfig.ServerIP,
+		ServerPort: clientConfig.ServerPort,
+		ClientIP:   clientConfig.ClientIP,
+		ClientName: clientConfig.ClientName,
+		Instructions: []string{
+			"1. Copy the entire script below",
+			"2. Open MikroTik Terminal (Winbox or SSH)",
+			"3. Paste the script and press Enter",
+			"4. Import certificates via Winbox: System > Certificates > Import",
+			"5. Verify connection: /interface ovpn-client print",
+			"6. Test RADIUS: /radius print",
 		},
-	})
+	}
+
+	response.OK(c, "MikroTik script generated successfully", resp)
 }
 
 // GetClientConfig gets OpenVPN client configuration
-// @Summary Get OpenVPN Client Config
-// @Description Get OpenVPN client configuration for a NAS
-// @Tags vpn
+// @Summary Get OpenVPN client config
+// @Description Gets OpenVPN client configuration for a NAS device
+// @Tags VPN
+// @Accept json
 // @Produce json
-// @Param X-Tenant-ID header string true "Tenant ID"
-// @Param nas_id path string true "NAS ID"
+// @Param id path string true "NAS ID"
 // @Success 200 {object} response.Response{data=usecase.VPNClientConfig}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Failure 500 {object} response.Response
 // @Security BearerAuth
-// @Router /vpn/client-config/{nas_id} [get]
+// @Router /tenant/vpn/client-config/{id} [get]
 func (h *VPNHandler) GetClientConfig(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
-	nasID := c.Param("nas_id")
-
-	config, err := h.vpnService.GenerateClientConfig(c.Request.Context(), tenantID, nasID)
+	tenantID, err := middleware.GetTenantIDFromContext(c)
 	if err != nil {
-		response.SimpleError(c, http.StatusInternalServerError, "Failed to generate client config", err.Error())
+		response.ErrorFromAppError(c, err.(*errors.AppError))
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Client config generated", config)
-}
-
-// DownloadClientConfig downloads OpenVPN client configuration as .ovpn file
-// @Summary Download OpenVPN Config
-// @Description Download OpenVPN client configuration as .ovpn file
-// @Tags vpn
-// @Produce text/plain
-// @Param X-Tenant-ID header string true "Tenant ID"
-// @Param nas_id path string true "NAS ID"
-// @Success 200 {string} string "OpenVPN config file"
-// @Security BearerAuth
-// @Router /vpn/download/{nas_id} [get]
-func (h *VPNHandler) DownloadClientConfig(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
-	nasID := c.Param("nas_id")
+	nasID := c.Param("id")
+	if nasID == "" {
+		response.BadRequest(c, "VAL_2003", "NAS ID is required", nil)
+		return
+	}
 
 	config, err := h.vpnService.GenerateClientConfig(c.Request.Context(), tenantID, nasID)
 	if err != nil {
-		response.SimpleError(c, http.StatusInternalServerError, "Failed to generate client config", err.Error())
+		if err == errors.ErrNotFound {
+			response.NotFound(c, "NAS_4001", "NAS not found")
+			return
+		}
+		response.InternalServerError(c, "SRV_9001", "Failed to generate client config")
+		return
+	}
+
+	response.OK(c, "Client config generated successfully", config)
+}
+
+// DownloadOVPNFile downloads .ovpn file for a NAS
+// @Summary Download OVPN file
+// @Description Downloads OpenVPN configuration file (.ovpn) for a NAS device
+// @Tags VPN
+// @Accept json
+// @Produce application/x-openvpn-profile
+// @Param id path string true "NAS ID"
+// @Success 200 {file} file
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Security BearerAuth
+// @Router /tenant/vpn/download-ovpn/{id} [get]
+func (h *VPNHandler) DownloadOVPNFile(c *gin.Context) {
+	tenantID, err := middleware.GetTenantIDFromContext(c)
+	if err != nil {
+		response.ErrorFromAppError(c, err.(*errors.AppError))
+		return
+	}
+
+	nasID := c.Param("id")
+	if nasID == "" {
+		response.BadRequest(c, "VAL_2003", "NAS ID is required", nil)
+		return
+	}
+
+	config, err := h.vpnService.GenerateClientConfig(c.Request.Context(), tenantID, nasID)
+	if err != nil {
+		if err == errors.ErrNotFound {
+			response.NotFound(c, "NAS_4001", "NAS not found")
+			return
+		}
+		response.InternalServerError(c, "SRV_9001", "Failed to generate client config")
 		return
 	}
 
 	filename := config.ClientName + ".ovpn"
 	c.Header("Content-Disposition", "attachment; filename="+filename)
 	c.Header("Content-Type", "application/x-openvpn-profile")
-	c.String(http.StatusOK, config.ConfigFile)
+	c.String(200, config.ConfigFile)
 }
 
 // ListVPNConnections lists all VPN connections
-// @Summary List VPN Connections
-// @Description Get all VPN connections for the tenant
-// @Tags vpn
+// @Summary List VPN connections
+// @Description Lists all VPN connections for the tenant
+// @Tags VPN
+// @Accept json
 // @Produce json
-// @Param X-Tenant-ID header string true "Tenant ID"
 // @Success 200 {object} response.Response{data=[]entity.VPNConnection}
+// @Failure 500 {object} response.Response
 // @Security BearerAuth
-// @Router /vpn/connections [get]
+// @Router /tenant/vpn/connections [get]
 func (h *VPNHandler) ListVPNConnections(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
+	tenantID, err := middleware.GetTenantIDFromContext(c)
+	if err != nil {
+		response.ErrorFromAppError(c, err.(*errors.AppError))
+		return
+	}
 
 	connections, err := h.vpnService.ListVPNConnections(c.Request.Context(), tenantID)
 	if err != nil {
-		response.SimpleError(c, http.StatusInternalServerError, "Failed to list connections", err.Error())
+		response.InternalServerError(c, "SRV_9001", "Failed to list VPN connections")
 		return
 	}
 
-	response.Success(c, http.StatusOK, "VPN connections retrieved", map[string]interface{}{
-		"connections": connections,
-	})
+	response.OK(c, "VPN connections retrieved successfully", connections)
 }
 
 // CreateVPNConnection creates a new VPN connection
-// @Summary Create VPN Connection
-// @Description Create a new VPN connection for a NAS
-// @Tags vpn
+// @Summary Create VPN connection
+// @Description Creates a new VPN connection for a NAS device
+// @Tags VPN
 // @Accept json
 // @Produce json
-// @Param X-Tenant-ID header string true "Tenant ID"
-// @Param request body usecase.CreateVPNConnectionRequest true "VPN connection data"
+// @Param request body usecase.CreateVPNConnectionRequest true "VPN connection request"
 // @Success 201 {object} response.Response{data=entity.VPNConnection}
+// @Failure 400 {object} response.Response
+// @Failure 500 {object} response.Response
 // @Security BearerAuth
-// @Router /vpn/connections [post]
+// @Router /tenant/vpn/connections [post]
 func (h *VPNHandler) CreateVPNConnection(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
+	tenantID, err := middleware.GetTenantIDFromContext(c)
+	if err != nil {
+		response.ErrorFromAppError(c, err.(*errors.AppError))
+		return
+	}
 
 	var req usecase.CreateVPNConnectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.SimpleError(c, http.StatusBadRequest, "Invalid request", err.Error())
+		response.BadRequest(c, "VAL_2001", "Invalid request body", err.Error())
 		return
 	}
 
-	conn, err := h.vpnService.CreateVPNConnection(c.Request.Context(), tenantID, &req)
+	connection, err := h.vpnService.CreateVPNConnection(c.Request.Context(), tenantID, &req)
 	if err != nil {
-		response.SimpleError(c, http.StatusInternalServerError, "Failed to create connection", err.Error())
+		response.InternalServerError(c, "SRV_9001", "Failed to create VPN connection")
 		return
 	}
 
-	response.Success(c, http.StatusCreated, "VPN connection created", conn)
+	response.Created(c, "VPN connection created successfully", connection)
 }
 
 // DeleteVPNConnection deletes a VPN connection
-// @Summary Delete VPN Connection
-// @Description Delete a VPN connection
-// @Tags vpn
+// @Summary Delete VPN connection
+// @Description Deletes a VPN connection
+// @Tags VPN
+// @Accept json
 // @Produce json
-// @Param X-Tenant-ID header string true "Tenant ID"
 // @Param id path string true "Connection ID"
 // @Success 200 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Failure 500 {object} response.Response
 // @Security BearerAuth
-// @Router /vpn/connections/{id} [delete]
+// @Router /tenant/vpn/connections/{id} [delete]
 func (h *VPNHandler) DeleteVPNConnection(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
-	connectionID := c.Param("id")
-
-	if err := h.vpnService.DeleteVPNConnection(c.Request.Context(), tenantID, connectionID); err != nil {
-		response.SimpleError(c, http.StatusInternalServerError, "Failed to delete connection", err.Error())
+	tenantID, err := middleware.GetTenantIDFromContext(c)
+	if err != nil {
+		response.ErrorFromAppError(c, err.(*errors.AppError))
 		return
 	}
 
-	response.Success(c, http.StatusOK, "VPN connection deleted", nil)
+	connectionID := c.Param("id")
+	if connectionID == "" {
+		response.BadRequest(c, "VAL_2003", "Connection ID is required", nil)
+		return
+	}
+
+	if err := h.vpnService.DeleteVPNConnection(c.Request.Context(), tenantID, connectionID); err != nil {
+		if err == errors.ErrNotFound {
+			response.NotFound(c, "VPN_4001", "VPN connection not found")
+			return
+		}
+		response.InternalServerError(c, "SRV_9001", "Failed to delete VPN connection")
+		return
+	}
+
+	response.OK(c, "VPN connection deleted successfully", nil)
+}
+
+// Response types
+type MikroTikScriptResponse struct {
+	Script       string   `json:"script"`
+	ServerIP     string   `json:"server_ip"`
+	ServerPort   int      `json:"server_port"`
+	ClientIP     string   `json:"client_ip"`
+	ClientName   string   `json:"client_name"`
+	Instructions []string `json:"instructions"`
 }

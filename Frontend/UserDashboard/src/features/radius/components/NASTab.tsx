@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -32,7 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DataTable, Column } from "@/components/shared";
 import { useNASList, useCreateNAS, useDeleteNAS } from "@/hooks/useRadius";
-import { apiClient } from "@/services/api/client";
+import { MikroTikScriptModal } from "./MikroTikScriptModal";
 import { toast } from "sonner";
 import {
   Plus,
@@ -43,23 +42,23 @@ import {
   Server,
   CheckCircle,
   XCircle,
-  Copy,
   Terminal,
-  Check,
 } from "lucide-react";
 import type { RadiusNAS } from "@/types/radius";
 
 export function NASTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [scriptDialogOpen, setScriptDialogOpen] = useState(false);
-  const [generatedScript, setGeneratedScript] = useState("");
-  const [generatedSecret, setGeneratedSecret] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [scriptModalOpen, setScriptModalOpen] = useState(false);
+  const [selectedNAS, setSelectedNAS] = useState<RadiusNAS | null>(null);
   const [nasToDelete, setNasToDelete] = useState<RadiusNAS | null>(null);
-  const [generating, setGenerating] = useState(false);
 
-  // Form state - hanya nama MikroTik
-  const [nasName, setNasName] = useState("");
+  // Form state
+  const [formData, setFormData] = useState({
+    nasname: "",
+    shortname: "",
+    secret: "",
+    description: "",
+  });
 
   const { data, isLoading } = useNASList();
   const createNAS = useCreateNAS();
@@ -68,45 +67,46 @@ export function NASTab() {
   const nasList: RadiusNAS[] = (data as { data?: RadiusNAS[] })?.data || [];
 
   const handleCreate = async () => {
-    if (!nasName.trim()) {
+    if (!formData.shortname.trim()) {
       toast.error("Nama MikroTik wajib diisi");
       return;
     }
 
-    setGenerating(true);
-
     try {
-      // Call backend to generate script
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scriptRes = await apiClient.post("/radius/generate-script", {
-        nas_name: nasName,
-      }) as any;
-
-      const script = scriptRes.data?.data?.script || "";
-      const secret = scriptRes.data?.data?.secret || "";
-
-      // Save NAS to database
-      await createNAS.mutateAsync({
-        nasname: "pending",
-        shortname: nasName,
+      // Generate random secret if not provided
+      const secret = formData.secret || generateRandomSecret();
+      
+      const newNAS = await createNAS.mutateAsync({
+        nasname: formData.nasname || "0.0.0.0",
+        shortname: formData.shortname,
         type: "mikrotik",
         secret: secret,
-        description: `Auto-generated for ${nasName}`,
+        description: formData.description,
       });
 
-      setGeneratedScript(script);
-      setGeneratedSecret(secret);
-      setDialogOpen(false);
-      setScriptDialogOpen(true);
-
       toast.success("NAS berhasil ditambahkan");
-      setNasName("");
+      setDialogOpen(false);
+      
+      // Open script modal with the new NAS
+      setSelectedNAS(newNAS as unknown as RadiusNAS);
+      setScriptModalOpen(true);
+      
+      // Reset form
+      setFormData({
+        nasname: "",
+        shortname: "",
+        secret: "",
+        description: "",
+      });
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
-      toast.error(error.response?.data?.message || "Gagal generate script");
-    } finally {
-      setGenerating(false);
+      toast.error(error.response?.data?.message || "Gagal menambahkan NAS");
     }
+  };
+
+  const handleShowScript = (nas: RadiusNAS) => {
+    setSelectedNAS(nas);
+    setScriptModalOpen(true);
   };
 
   const confirmDelete = async () => {
@@ -121,15 +121,13 @@ export function NASTab() {
     }
   };
 
-  const handleCopyScript = async () => {
-    try {
-      await navigator.clipboard.writeText(generatedScript);
-      setCopied(true);
-      toast.success("Script berhasil disalin!");
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Gagal menyalin script");
+  const generateRandomSecret = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let secret = '';
+    for (let i = 0; i < 16; i++) {
+      secret += chars.charAt(Math.floor(Math.random() * chars.length));
     }
+    return secret;
   };
 
   const columns: Column<RadiusNAS>[] = [
@@ -149,9 +147,9 @@ export function NASTab() {
       header: "IP Address",
       cell: (row) => (
         <span className="font-mono text-sm">
-          {row.nasname === "pending" ? (
+          {row.nasname === "0.0.0.0" || row.nasname === "pending" ? (
             <Badge variant="outline" className="text-yellow-600">
-              Menunggu koneksi...
+              Belum terhubung
             </Badge>
           ) : (
             row.nasname
@@ -200,6 +198,10 @@ export function NASTab() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleShowScript(row)}>
+              <Terminal className="mr-2 h-4 w-4" />
+              Lihat Setup Script
+            </DropdownMenuItem>
             <DropdownMenuItem>
               <Edit className="mr-2 h-4 w-4" />
               Edit
@@ -238,34 +240,60 @@ export function NASTab() {
             <DialogHeader>
               <DialogTitle>Tambah MikroTik Baru</DialogTitle>
               <DialogDescription>
-                Masukkan nama MikroTik, sistem akan generate script konfigurasi
-                otomatis untuk koneksi ke server
+                Daftarkan MikroTik router Anda. Setelah ditambahkan, sistem akan
+                generate script setup otomatis dengan VPN + RADIUS.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="nasName">Nama MikroTik *</Label>
+                <Label htmlFor="shortname">Nama MikroTik *</Label>
                 <Input
-                  id="nasName"
-                  value={nasName}
-                  onChange={(e) => setNasName(e.target.value)}
+                  id="shortname"
+                  value={formData.shortname}
+                  onChange={(e) => setFormData({ ...formData, shortname: e.target.value })}
                   placeholder="Contoh: MikroTik-Kantor, Router-RT01"
                 />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="nasname">IP Address (Opsional)</Label>
+                <Input
+                  id="nasname"
+                  value={formData.nasname}
+                  onChange={(e) => setFormData({ ...formData, nasname: e.target.value })}
+                  placeholder="0.0.0.0 (akan terdeteksi otomatis via VPN)"
+                />
                 <p className="text-xs text-muted-foreground">
-                  Nama unik untuk identifikasi router MikroTik Anda
+                  Kosongkan jika menggunakan VPN (recommended)
                 </p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="secret">RADIUS Secret (Opsional)</Label>
+                <Input
+                  id="secret"
+                  value={formData.secret}
+                  onChange={(e) => setFormData({ ...formData, secret: e.target.value })}
+                  placeholder="Auto-generate jika kosong"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description">Keterangan</Label>
+                <Input
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Lokasi atau keterangan lainnya"
+                />
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
                 Batal
               </Button>
-              <Button onClick={handleCreate} disabled={generating || createNAS.isPending}>
-                {(generating || createNAS.isPending) && (
+              <Button onClick={handleCreate} disabled={createNAS.isPending}>
+                {createNAS.isPending && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                <Terminal className="mr-2 h-4 w-4" />
-                Generate Script
+                Tambah & Generate Script
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -284,69 +312,15 @@ export function NASTab() {
         emptyMessage="Belum ada MikroTik terdaftar"
       />
 
-      {/* Script Dialog */}
-      <Dialog open={scriptDialogOpen} onOpenChange={setScriptDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Terminal className="h-5 w-5" />
-              Script Konfigurasi MikroTik
-            </DialogTitle>
-            <DialogDescription>
-              Copy script di bawah ini dan paste ke Terminal MikroTik Anda
-            </DialogDescription>
-          </DialogHeader>
-          <div className="relative">
-            <Textarea
-              value={generatedScript}
-              readOnly
-              className="font-mono text-xs h-[400px] bg-zinc-950 text-green-400 border-zinc-800"
-            />
-            <Button
-              size="sm"
-              variant="secondary"
-              className="absolute top-2 right-2"
-              onClick={handleCopyScript}
-            >
-              {copied ? (
-                <>
-                  <Check className="mr-2 h-4 w-4" />
-                  Tersalin!
-                </>
-              ) : (
-                <>
-                  <Copy className="mr-2 h-4 w-4" />
-                  Copy Script
-                </>
-              )}
-            </Button>
-          </div>
-          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-            <p className="text-sm text-amber-800 dark:text-amber-300">
-              <strong>Cara penggunaan:</strong>
-              <br />
-              1. Buka Winbox → Terminal
-              <br />
-              2. Copy semua script di atas (Ctrl+A, Ctrl+C)
-              <br />
-              3. Klik kanan di Terminal MikroTik → Paste
-              <br />
-              4. Tunggu hingga selesai
-              <br />
-              5. Verifikasi dengan: <code>/interface ovpn-client print</code>
-            </p>
-          </div>
-          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-            <p className="text-sm text-blue-800 dark:text-blue-300">
-              <strong>Catatan:</strong> Pastikan OpenVPN server sudah berjalan di VPS 
-              dan port 1194 UDP terbuka di firewall.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setScriptDialogOpen(false)}>Selesai</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* MikroTik Script Modal */}
+      {selectedNAS && (
+        <MikroTikScriptModal
+          open={scriptModalOpen}
+          onOpenChange={setScriptModalOpen}
+          nasId={selectedNAS.id}
+          nasName={selectedNAS.shortname}
+        />
+      )}
 
       {/* Delete Confirmation */}
       <AlertDialog

@@ -138,11 +138,15 @@ type UsageStats struct {
 
 // Implementation
 type radiusService struct {
-	db *gorm.DB
+	db              *gorm.DB
+	freeradiusSync  *FreeRADIUSSyncService
 }
 
 func NewRadiusService(db *gorm.DB) RadiusService {
-	return &radiusService{db: db}
+	return &radiusService{
+		db:             db,
+		freeradiusSync: NewFreeRADIUSSyncService(db),
+	}
 }
 
 // NAS Management
@@ -283,6 +287,12 @@ func (s *radiusService) CreateUser(ctx context.Context, tenantID string, req *Cr
 	// Create default attributes
 	s.createDefaultAttributes(ctx, user)
 
+	// Sync to FreeRADIUS
+	if err := s.freeradiusSync.SyncRadiusUser(user); err != nil {
+		logger.Error("Failed to sync user to FreeRADIUS: %v", err)
+		// Don't fail the request, just log the error
+	}
+
 	logger.Info("RADIUS user created: %s (%s)", user.Username, user.ID)
 	return user, nil
 }
@@ -399,10 +409,26 @@ func (s *radiusService) UpdateUser(ctx context.Context, tenantID, userID string,
 	s.db.WithContext(ctx).Where("radius_user_id = ?", user.ID).Delete(&entity.RadiusUserAttribute{})
 	s.createDefaultAttributes(ctx, user)
 
+	// Sync to FreeRADIUS
+	if err := s.freeradiusSync.SyncRadiusUser(user); err != nil {
+		logger.Error("Failed to sync user to FreeRADIUS: %v", err)
+	}
+
 	return nil
 }
 
 func (s *radiusService) DeleteUser(ctx context.Context, tenantID, userID string) error {
+	// Get user first to get username
+	user, err := s.GetUser(ctx, tenantID, userID)
+	if err != nil {
+		return err
+	}
+
+	// Delete from FreeRADIUS
+	if err := s.freeradiusSync.DeleteUser(user.Username); err != nil {
+		logger.Error("Failed to delete user from FreeRADIUS: %v", err)
+	}
+
 	// Delete attributes first
 	s.db.WithContext(ctx).Where("radius_user_id = ?", userID).Delete(&entity.RadiusUserAttribute{})
 
@@ -417,6 +443,11 @@ func (s *radiusService) DeleteUser(ctx context.Context, tenantID, userID string)
 }
 
 func (s *radiusService) SuspendUser(ctx context.Context, tenantID, userID string) error {
+	user, err := s.GetUser(ctx, tenantID, userID)
+	if err != nil {
+		return err
+	}
+
 	result := s.db.WithContext(ctx).Model(&entity.RadiusUser{}).
 		Where("id = ? AND tenant_id = ?", userID, tenantID).
 		Update("is_active", false)
@@ -426,10 +457,22 @@ func (s *radiusService) SuspendUser(ctx context.Context, tenantID, userID string
 	if result.RowsAffected == 0 {
 		return errors.ErrNotFound
 	}
+
+	// Sync to FreeRADIUS (will remove user since inactive)
+	user.IsActive = false
+	if err := s.freeradiusSync.SyncRadiusUser(user); err != nil {
+		logger.Error("Failed to sync suspended user to FreeRADIUS: %v", err)
+	}
+
 	return nil
 }
 
 func (s *radiusService) ActivateUser(ctx context.Context, tenantID, userID string) error {
+	user, err := s.GetUser(ctx, tenantID, userID)
+	if err != nil {
+		return err
+	}
+
 	result := s.db.WithContext(ctx).Model(&entity.RadiusUser{}).
 		Where("id = ? AND tenant_id = ?", userID, tenantID).
 		Update("is_active", true)
@@ -439,6 +482,13 @@ func (s *radiusService) ActivateUser(ctx context.Context, tenantID, userID strin
 	if result.RowsAffected == 0 {
 		return errors.ErrNotFound
 	}
+
+	// Sync to FreeRADIUS
+	user.IsActive = true
+	if err := s.freeradiusSync.SyncRadiusUser(user); err != nil {
+		logger.Error("Failed to sync activated user to FreeRADIUS: %v", err)
+	}
+
 	return nil
 }
 

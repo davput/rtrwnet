@@ -18,6 +18,7 @@ import { CustomerMonitoringTab } from "@/components/customers/detail/MonitoringT
 import { CustomerServiceTab } from "@/components/customers/detail/ServiceTab";
 import { CustomerTicketsTab } from "@/components/customers/detail/TicketsTab";
 import { CustomerHistoryTab } from "@/components/customers/detail/HistoryTab";
+import { HotspotTab } from "@/components/customers/detail/HotspotTab";
 
 function CustomerDetailSkeleton() {
   return (
@@ -155,11 +156,12 @@ export function CustomerDetailPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="profile">Profil</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
           <TabsTrigger value="service">Layanan</TabsTrigger>
+          <TabsTrigger value="hotspot">Hotspot</TabsTrigger>
           <TabsTrigger value="tickets">Tiket</TabsTrigger>
           <TabsTrigger value="history">Riwayat</TabsTrigger>
         </TabsList>
@@ -178,6 +180,15 @@ export function CustomerDetailPage() {
 
         <TabsContent value="service" className="space-y-4">
           <CustomerServiceTab customer={customer} onDataChange={onDataChange} />
+        </TabsContent>
+
+        <TabsContent value="hotspot" className="space-y-4">
+          <HotspotTab 
+            customerId={customer.id} 
+            hotspotEnabled={customer.hotspot_enabled || false}
+            hotspotUsername={customer.hotspot_username}
+            onUpdate={onDataChange}
+          />
         </TabsContent>
 
         <TabsContent value="tickets" className="space-y-4">

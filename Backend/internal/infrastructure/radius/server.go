@@ -200,7 +200,17 @@ func (s *RadiusServer) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 
 	logger.Info("RADIUS Auth request: user=%s, nas=%s, pass_len=%d", username, nasIP, len(password))
 
-	// Find user by username
+	// Check if this is a hotspot voucher request
+	// Hotspot vouchers are identified by checking if username exists in hotspot_vouchers table
+	var voucherCount int64
+	s.db.Model(&entity.HotspotVoucher{}).Where("voucher_code = ?", username).Count(&voucherCount)
+	if voucherCount > 0 {
+		logger.Info("RADIUS: Detected hotspot voucher request for: %s", username)
+		s.handleHotspotAuth(w, r)
+		return
+	}
+
+	// Find user by username (PPPoE user)
 	var user entity.RadiusUser
 	if err := s.db.Where("username = ? AND is_active = ?", username, true).First(&user).Error; err != nil {
 		logger.Warn("RADIUS Auth failed: user not found: %s, error: %v", username, err)
@@ -319,6 +329,15 @@ func (s *RadiusServer) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 	framedIP := rfc2865.FramedIPAddress_Get(r.Packet)
 
 	logger.Info("RADIUS Acct request: type=%d, user=%s, session=%s", acctStatusType, username, sessionID)
+
+	// Check if this is a hotspot voucher request
+	var voucherCount int64
+	s.db.Model(&entity.HotspotVoucher{}).Where("voucher_code = ?", username).Count(&voucherCount)
+	if voucherCount > 0 {
+		logger.Info("RADIUS: Detected hotspot accounting request for: %s", username)
+		s.handleHotspotAcct(w, r)
+		return
+	}
 
 	switch acctStatusType {
 	case rfc2866.AcctStatusType_Value_Start:

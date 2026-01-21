@@ -43,6 +43,26 @@ services:
       - rtrwnet
 
   # ============================================
+  # FreeRADIUS Server
+  # ============================================
+  freeradius:
+    build:
+      context: ./Backend
+      dockerfile: freeradius/Dockerfile
+    container_name: rtrwnet-freeradius
+    restart: unless-stopped
+    ports:
+      - "1812:1812/udp"
+      - "1813:1813/udp"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rtrwnet
+    environment:
+      - TZ=Asia/Jakarta
+
+  # ============================================
   # Backend API
   # ============================================
   backend:
@@ -67,9 +87,10 @@ services:
       - VPN_SERVER_IP=${VPN_SERVER_IP:-202.10.48.155}
       - VPN_SERVER_PORT=1194
       - RADIUS_INTERNAL_IP=10.8.0.1
-      - ENABLE_RADIUS=true
-      - RADIUS_AUTH_PORT=1812
-      - RADIUS_ACCT_PORT=1813
+      - ENABLE_RADIUS=false
+      - FREERADIUS_HOST=freeradius
+      - FREERADIUS_AUTH_PORT=1812
+      - FREERADIUS_ACCT_PORT=1813
       - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://${VPN_SERVER_IP:-202.10.48.155}:3000,http://${VPN_SERVER_IP:-202.10.48.155}:5173,http://${VPN_SERVER_IP:-202.10.48.155}:5174,http://${VPN_SERVER_IP:-202.10.48.155}:5175,https://admin.fureup.my.id,https://app.fureup.my.id,https://fureup.my.id,http://admin.fureup.my.id,http://app.fureup.my.id,http://fureup.my.id
       - MIDTRANS_SERVER_KEY=${MIDTRANS_SERVER_KEY:-}
       - MIDTRANS_CLIENT_KEY=${MIDTRANS_CLIENT_KEY:-}
@@ -81,13 +102,13 @@ services:
       - SMTP_FROM=${SMTP_FROM:-}
     ports:
       - "8089:8089"
-      - "1812:1812/udp"
-      - "1813:1813/udp"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      freeradius:
+        condition: service_started
     networks:
       - rtrwnet
 

@@ -26,9 +26,10 @@ import { format } from "date-fns";
 interface CustomerFormProps {
   customerId?: string;
   mode?: "create" | "edit";
+  onSuccess?: () => void;
 }
 
-export function CustomerForm({ mode = "create" }: CustomerFormProps) {
+export function CustomerForm({ mode = "create", onSuccess }: CustomerFormProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -201,7 +202,13 @@ export function CustomerForm({ mode = "create" }: CustomerFormProps) {
             description: `${newCustomer.name} telah terdaftar dengan kode ${newCustomer.customer_code}`,
           });
         }
-        navigate("/pelanggan");
+        
+        // Call onSuccess callback if provided, otherwise navigate
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          navigate("/pelanggan");
+        }
       }
     } catch (error) {
       console.error("Error creating customer:", error);
@@ -524,26 +531,28 @@ export function CustomerForm({ mode = "create" }: CustomerFormProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/pelanggan")}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            {mode === "create" ? "Tambah Pelanggan Baru" : "Edit Pelanggan"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {mode === "create"
-              ? "Lengkapi form di bawah untuk mendaftarkan pelanggan baru"
-              : "Update data pelanggan"}
-          </p>
+      {!onSuccess && (
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/pelanggan")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {mode === "create" ? "Tambah Pelanggan Baru" : "Edit Pelanggan"}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {mode === "create"
+                ? "Lengkapi form di bawah untuk mendaftarkan pelanggan baru"
+                : "Update data pelanggan"}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       <WizardForm
         steps={steps}
         onComplete={handleSubmit}
-        onCancel={() => navigate("/pelanggan")}
+        onCancel={onSuccess ? undefined : () => navigate("/pelanggan")}
         submitLabel="Simpan Pelanggan"
         isSubmitting={isSubmitting}
       />

@@ -2,12 +2,20 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useServicePlans } from "./service-plan.store";
 import { servicePlanApi } from "./service-plan.api";
+import { ServicePlanForm } from "./ServicePlanForm";
 import type { ServicePlan } from "./service-plan.types";
 import { DataTable, Column } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Edit, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +41,7 @@ export function ServicePlansPage() {
   const { plans, loading, refresh } = useServicePlans();
   const [planToDelete, setPlanToDelete] = useState<ServicePlan | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showAddPlan, setShowAddPlan] = useState(false);
 
   const handleDelete = (plan: ServicePlan) => {
     setPlanToDelete(plan);
@@ -145,7 +154,7 @@ export function ServicePlansPage() {
             Kelola paket layanan internet untuk pelanggan
           </p>
         </div>
-        <Button onClick={() => navigate("/paket-internet/tambah")}>
+        <Button onClick={() => setShowAddPlan(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Tambah Paket
         </Button>
@@ -175,6 +184,22 @@ export function ServicePlansPage() {
         emptyMessage="Belum ada paket internet"
         onRowClick={(row) => navigate(`/paket-internet/${row.id}`)}
       />
+
+      <Dialog open={showAddPlan} onOpenChange={setShowAddPlan}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Tambah Paket Internet</DialogTitle>
+            <DialogDescription>Buat paket internet baru untuk pelanggan</DialogDescription>
+          </DialogHeader>
+          <ServicePlanForm 
+            mode="create"
+            onSuccess={() => {
+              setShowAddPlan(false);
+              refresh();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!planToDelete} onOpenChange={() => setPlanToDelete(null)}>
         <AlertDialogContent>

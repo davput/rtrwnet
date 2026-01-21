@@ -1,0 +1,48 @@
+# SQL Module Configuration for PostgreSQL
+sql {
+    driver = "rlm_sql_postgresql"
+    
+    dialect = "postgresql"
+    
+    # Connection info
+    server = "postgres"
+    port = 5432
+    login = "postgres"
+    password = "cvkcvk12"
+    radius_db = "rtrwnet_saas"
+    
+    # Connection pool
+    pool {
+        start = 5
+        min = 4
+        max = 32
+        spare = 3
+        uses = 0
+        retry_delay = 30
+        lifetime = 0
+        idle_timeout = 60
+    }
+    
+    # Query configuration
+    read_clients = yes
+    client_table = "radius_nas"
+    
+    # Table names
+    acct_table1 = "radacct"
+    acct_table2 = "radacct"
+    postauth_table = "radpostauth"
+    authcheck_table = "radcheck"
+    groupcheck_table = "radgroupcheck"
+    authreply_table = "radreply"
+    groupreply_table = "radgroupreply"
+    usergroup_table = "radusergroup"
+    
+    # Remove stale session
+    delete_stale_sessions = yes
+    
+    # SQL queries directory
+    $INCLUDE ${modconfdir}/${.:name}/main/${dialect}/queries.conf
+    
+    # Logging
+    logfile = ${logdir}/sqllog.sql
+}

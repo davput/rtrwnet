@@ -29,6 +29,11 @@ export interface Customer {
   ip_address?: string;
   last_seen?: string;
   
+  // Hotspot access
+  hotspot_enabled?: boolean;
+  hotspot_username?: string;
+  hotspot_password?: string;
+  
   status: CustomerStatus;
   installation_date?: string;
   due_date?: number;
