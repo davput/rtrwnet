@@ -22,8 +22,10 @@ fi
 
 echo "Starting FreeRADIUS..."
 
-# Find radiusd binary
-if command -v radiusd >/dev/null 2>&1; then
+# Find radiusd binary - check /opt/sbin first (official freeradius image)
+if [ -x /opt/sbin/radiusd ]; then
+    exec /opt/sbin/radiusd -f -l stdout
+elif command -v radiusd >/dev/null 2>&1; then
     exec radiusd -f -l stdout
 elif command -v freeradius >/dev/null 2>&1; then
     exec freeradius -f -l stdout
@@ -31,11 +33,8 @@ elif [ -x /usr/sbin/radiusd ]; then
     exec /usr/sbin/radiusd -f -l stdout
 elif [ -x /usr/sbin/freeradius ]; then
     exec /usr/sbin/freeradius -f -l stdout
-elif [ -x /opt/freeradius/sbin/radiusd ]; then
-    exec /opt/freeradius/sbin/radiusd -f -l stdout
 else
     echo "ERROR: radiusd/freeradius binary not found!"
-    echo "Searching for radiusd..."
     find / -name "radiusd" -o -name "freeradius" 2>/dev/null || true
     exit 1
 fi
