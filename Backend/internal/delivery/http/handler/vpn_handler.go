@@ -204,7 +204,7 @@ func (h *VPNHandler) CreateVPNConnection(c *gin.Context) {
 
 	var req usecase.CreateVPNConnectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "VAL_2001", "Invalid request body", err.Error())
+		response.BadRequest(c, "VAL_2001", "Invalid request body", nil)
 		return
 	}
 

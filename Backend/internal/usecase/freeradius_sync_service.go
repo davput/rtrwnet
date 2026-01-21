@@ -187,29 +187,8 @@ func (s *FreeRADIUSSyncService) SyncHotspotVoucher(voucher *entity.HotspotVouche
 			return fmt.Errorf("failed to insert voucher rate limit: %w", err)
 		}
 
-		// Add session timeout if configured
-		if pkg.SessionTimeout > 0 {
-			sessionTimeoutSeconds := pkg.SessionTimeout * 3600 // hours to seconds
-			if err := tx.Exec(`
-				INSERT INTO radreply (username, attribute, op, value, is_active, tenant_id)
-				VALUES (?, 'Session-Timeout', ':=', ?, true, ?)
-			`, voucher.VoucherCode, fmt.Sprintf("%d", sessionTimeoutSeconds), voucher.TenantID).Error; err != nil {
-				tx.Rollback()
-				return fmt.Errorf("failed to insert session timeout: %w", err)
-			}
-		}
-
-		// Add idle timeout if configured
-		if pkg.IdleTimeout > 0 {
-			idleTimeoutSeconds := pkg.IdleTimeout * 60 // minutes to seconds
-			if err := tx.Exec(`
-				INSERT INTO radreply (username, attribute, op, value, is_active, tenant_id)
-				VALUES (?, 'Idle-Timeout', ':=', ?, true, ?)
-			`, voucher.VoucherCode, fmt.Sprintf("%d", idleTimeoutSeconds), voucher.TenantID).Error; err != nil {
-				tx.Rollback()
-				return fmt.Errorf("failed to insert idle timeout: %w", err)
-			}
-		}
+		// Note: Session timeout and idle timeout can be added here if needed
+		// For now, we rely on package duration settings
 
 		logger.Info("FreeRADIUS: Synced voucher %s with rate limit %s", voucher.VoucherCode, rateLimit)
 	}
@@ -259,9 +238,9 @@ func (s *FreeRADIUSSyncService) SyncCustomerHotspot(customer *entity.Customer) e
 	}
 
 	// Get service plan for rate limiting
-	if customer.ServicePlanID != nil {
+	if customer.ServicePlanID != "" {
 		var plan entity.ServicePlan
-		if err := tx.Where("id = ?", *customer.ServicePlanID).First(&plan).Error; err == nil {
+		if err := tx.Where("id = ?", customer.ServicePlanID).First(&plan).Error; err == nil {
 			downloadKbps := plan.SpeedDownload * 1000
 			uploadKbps := plan.SpeedUpload * 1000
 			rateLimit := fmt.Sprintf("%dk/%dk", uploadKbps, downloadKbps)

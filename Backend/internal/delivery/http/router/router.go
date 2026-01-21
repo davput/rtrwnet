@@ -10,7 +10,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rtrwnet/saas-backend/internal/delivery/http/handler"
 	"github.com/rtrwnet/saas-backend/internal/infrastructure/cache"
-	radiusModule "github.com/rtrwnet/saas-backend/internal/infrastructure/radius"
 	"github.com/rtrwnet/saas-backend/internal/middleware"
 	"github.com/rtrwnet/saas-backend/internal/repository/postgres"
 	"github.com/rtrwnet/saas-backend/internal/usecase"
@@ -94,13 +93,15 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 	radiusService := usecase.NewRadiusService(cfg.DB)
 	vpnService := usecase.NewVPNService(cfg.DB)
 
+	// FreeRADIUS sync service
+	freeradiusSync := usecase.NewFreeRADIUSSyncService(cfg.DB)
+
 	// Hotspot services
 	hotspotPackageService := usecase.NewHotspotPackageService(hotspotPackageRepo)
-	hotspotVoucherService := usecase.NewHotspotVoucherService(hotspotVoucherRepo, hotspotPackageRepo)
+	hotspotVoucherService := usecase.NewHotspotVoucherService(hotspotVoucherRepo, hotspotPackageRepo, freeradiusSync)
 	captivePortalService := usecase.NewCaptivePortalService(captivePortalRepo, hotspotVoucherRepo, hotspotPackageRepo)
 	
-	// Note: hotspotSessionService requires RADIUS server which is initialized separately
-	// For now, we'll create it with nil RADIUS server (will be updated when RADIUS is enabled)
+	// Note: hotspotSessionService requires RADIUS server which is now handled by FreeRADIUS
 	hotspotSessionService := usecase.NewHotspotSessionService(hotspotVoucherRepo, hotspotPackageRepo, nil)
 
 	// Initialize Midtrans client
@@ -188,10 +189,9 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 	hotspotVoucherHandler := handler.NewHotspotVoucherHandler(hotspotVoucherService)
 	captivePortalHandler := handler.NewCaptivePortalHandler(captivePortalService)
 	hotspotSessionHandler := handler.NewHotspotSessionHandler(hotspotSessionService)
-	customerHotspotHandler := handler.NewCustomerHotspotHandler(customerRepo)
+	customerHotspotHandler := handler.NewCustomerHotspotHandler(customerRepo, freeradiusSync)
 
-	// Set up customer event broadcaster for RADIUS server
-	radiusModule.SetCustomerEventBroadcaster(handler.GetBroadcaster())
+	// Note: Customer event broadcasting now handled by FreeRADIUS via database triggers
 
 	// Initialize R2 storage client (optional)
 	var r2Client *storage.R2Client
