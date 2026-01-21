@@ -737,3 +737,29 @@ VALUES (
 -- DONE
 -- ============================================
 SELECT 'Database initialized successfully!' as status;
+
+
+-- ============================================
+-- VPN CONNECTIONS
+-- ============================================
+CREATE TABLE IF NOT EXISTS vpn_connections (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id VARCHAR(36) NOT NULL,
+    device_id UUID,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    vpn_type VARCHAR(20) DEFAULT 'openvpn',
+    status VARCHAR(20) DEFAULT 'pending',
+    is_active BOOLEAN DEFAULT true,
+    ovpn_ca_cert TEXT,
+    ovpn_client_cert TEXT,
+    ovpn_client_key_encrypted TEXT,
+    ovpn_tls_auth TEXT,
+    assigned_ip VARCHAR(45),
+    last_connected_at TIMESTAMP,
+    last_disconnected_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_vpn_connections_tenant ON vpn_connections(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_vpn_connections_device ON vpn_connections(device_id);

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"os"
 	"text/template"
 	"time"
 
@@ -652,9 +653,12 @@ func allocateClientIP(nasID string) string {
 }
 
 func getVPNServerIP() string {
-	// Get from environment or return default
-	// In production, this should come from config
-	return "YOUR_VPS_IP" // Replace with actual VPS IP
+	// Get from environment variable
+	if ip := os.Getenv("VPN_SERVER_IP"); ip != "" {
+		return ip
+	}
+	// Fallback to default
+	return "vpn.fureup.my.id"
 }
 
 func getRADIUSServerIP() string {
