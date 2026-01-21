@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Copy, Download, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,10 +43,10 @@ export function MikroTikScriptModal({
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get(`/vpn/mikrotik-script/${nasId}`);
-      setScriptData(response.data.data);
+      const response = await api.get<{ data: ScriptResponse }>(`/vpn/mikrotik-script/${nasId}`);
+      setScriptData(response.data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to generate script');
+      setError(err.message || 'Failed to generate script');
     } finally {
       setLoading(false);
     }
@@ -80,15 +80,16 @@ export function MikroTikScriptModal({
 
   const handleDownloadOVPN = async () => {
     try {
-      const response = await api.get(`/vpn/download-ovpn/${nasId}`, {
-        responseType: 'blob',
-      });
+      // Get client config which contains the OVPN file content
+      const response = await api.get<{ data: { config_file: string; client_name: string } }>(`/vpn/client-config/${nasId}`);
+      const configFile = response.data.config_file;
+      const clientName = response.data.client_name || scriptData?.client_name || 'client';
       
-      const blob = new Blob([response.data], { type: 'application/x-openvpn-profile' });
+      const blob = new Blob([configFile], { type: 'application/x-openvpn-profile' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${scriptData?.client_name || 'client'}.ovpn`;
+      a.download = `${clientName}.ovpn`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -99,11 +100,11 @@ export function MikroTikScriptModal({
   };
 
   // Fetch script when modal opens
-  useState(() => {
-    if (open && !scriptData) {
+  useEffect(() => {
+    if (open && !scriptData && !loading) {
       fetchScript();
     }
-  });
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
