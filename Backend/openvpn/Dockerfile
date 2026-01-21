@@ -10,10 +10,10 @@ RUN apk add --no-cache \
 # Create directories
 RUN mkdir -p /etc/openvpn /var/log/openvpn
 
-# Copy config and scripts (paths relative to build context)
-COPY server.conf /etc/openvpn/server.conf
-COPY auth-user.sh /etc/openvpn/auth-user.sh
-COPY entrypoint.sh /entrypoint.sh
+# Copy config and scripts (from openvpn subfolder when building from Backend)
+COPY openvpn/server.conf /etc/openvpn/server.conf
+COPY openvpn/auth-user.sh /etc/openvpn/auth-user.sh
+COPY openvpn/entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /etc/openvpn/auth-user.sh /entrypoint.sh
 
