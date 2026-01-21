@@ -5,6 +5,7 @@ namespace: rtrwnet-staging
 
 resources:
   - ../../base
+  - namespace.yaml
   - configmap.yaml
   - secrets.yaml
 

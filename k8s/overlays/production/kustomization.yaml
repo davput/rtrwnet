@@ -5,6 +5,7 @@ namespace: rtrwnet-prod
 
 resources:
   - ../../base
+  - namespace.yaml
   - configmap.yaml
   - secrets.yaml
 
