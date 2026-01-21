@@ -134,29 +134,29 @@ func (RadiusAccounting) TableName() string {
 
 // VPNConnection represents VPN connection to customer MikroTik
 type VPNConnection struct {
-	ID                    uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	TenantID              string     `json:"tenant_id" gorm:"type:uuid;not null;index"`
-	DeviceID              *uuid.UUID `json:"device_id" gorm:"type:uuid;index"`
-	Name                  string     `json:"name" gorm:"not null"`
-	VPNType               string     `json:"vpn_type" gorm:"default:'wireguard'"` // wireguard, openvpn
+	ID                     uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	TenantID               string     `json:"tenant_id" gorm:"column:tenant_id;type:uuid;not null;index"`
+	DeviceID               *uuid.UUID `json:"device_id" gorm:"column:device_id;type:uuid;index"`
+	Name                   string     `json:"name" gorm:"column:name;not null"`
+	VPNType                string     `json:"vpn_type" gorm:"column:vpn_type;default:'openvpn'"` // wireguard, openvpn
 	// WireGuard
-	WGPublicKey           string     `json:"wg_public_key"`
-	WGPrivateKeyEncrypted string     `json:"-"`
-	WGEndpoint            string     `json:"wg_endpoint"`
-	WGAllowedIPs          string     `json:"wg_allowed_ips"`
-	WGPersistentKeepalive int        `json:"wg_persistent_keepalive" gorm:"default:25"`
+	WGPublicKey            string     `json:"wg_public_key" gorm:"column:wg_public_key"`
+	WGPrivateKeyEncrypted  string     `json:"-" gorm:"column:wg_private_key_encrypted"`
+	WGEndpoint             string     `json:"wg_endpoint" gorm:"column:wg_endpoint"`
+	WGAllowedIPs           string     `json:"wg_allowed_ips" gorm:"column:wg_allowed_ips"`
+	WGPersistentKeepalive  int        `json:"wg_persistent_keepalive" gorm:"column:wg_persistent_keepalive;default:25"`
 	// OpenVPN
-	OVPNConfigEncrypted   string     `json:"-"`
-	OVPNCACert            string     `json:"-"`
-	OVPNClientCert        string     `json:"-"`
-	OVPNClientKeyEncrypted string    `json:"-"`
+	OVPNConfigEncrypted    string     `json:"-" gorm:"column:ovpn_config_encrypted"`
+	OVPNCACert             string     `json:"-" gorm:"column:ovpn_ca_cert"`
+	OVPNClientCert         string     `json:"-" gorm:"column:ovpn_client_cert"`
+	OVPNClientKeyEncrypted string     `json:"-" gorm:"column:ovpn_client_key_encrypted"`
 	// Status
-	Status                string     `json:"status" gorm:"default:'disconnected'"`
-	LastConnectedAt       *time.Time `json:"last_connected_at"`
-	LastError             string     `json:"last_error"`
-	IsActive              bool       `json:"is_active" gorm:"default:true"`
-	CreatedAt             time.Time  `json:"created_at"`
-	UpdatedAt             time.Time  `json:"updated_at"`
+	Status                 string     `json:"status" gorm:"column:status;default:'disconnected'"`
+	LastConnectedAt        *time.Time `json:"last_connected_at" gorm:"column:last_connected_at"`
+	LastError              string     `json:"last_error" gorm:"column:last_error"`
+	IsActive               bool       `json:"is_active" gorm:"column:is_active;default:true"`
+	CreatedAt              time.Time  `json:"created_at" gorm:"column:created_at"`
+	UpdatedAt              time.Time  `json:"updated_at" gorm:"column:updated_at"`
 
 	// Relations
 	Device *Device `json:"device,omitempty" gorm:"foreignKey:DeviceID"`
