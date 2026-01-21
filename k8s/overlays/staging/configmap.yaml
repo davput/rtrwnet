@@ -29,4 +29,4 @@ data:
   R2_BUCKET_NAME: "websass"
   R2_PUBLIC_URL: "https://pub-d96bc6b2ab634a15b29c8083a2e7eb5b.r2.dev"
   # VPN
-  VPN_SERVER_IP: "202.10.48.155"
+  VPN_SERVER_IP: "76.13.20.36"
