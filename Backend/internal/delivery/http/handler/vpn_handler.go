@@ -64,12 +64,12 @@ func (h *VPNHandler) GenerateMikroTikScript(c *gin.Context) {
 		ClientIP:   clientConfig.ClientIP,
 		ClientName: clientConfig.ClientName,
 		Instructions: []string{
-			"1. Copy the entire script below",
-			"2. Open MikroTik Terminal (Winbox or SSH)",
-			"3. Paste the script and press Enter",
-			"4. Import certificates via Winbox: System > Certificates > Import",
-			"5. Verify connection: /interface ovpn-client print",
-			"6. Test RADIUS: /radius print",
+			"1. Copy seluruh script di bawah",
+			"2. Buka MikroTik Terminal (Winbox atau SSH)",
+			"3. Paste script dan tekan Enter",
+			"4. Tunggu VPN terhubung (cek dengan /interface ovpn-client print)",
+			"5. Verifikasi RADIUS: /radius print",
+			"6. Test koneksi: /ping 10.8.0.1",
 		},
 	}
 

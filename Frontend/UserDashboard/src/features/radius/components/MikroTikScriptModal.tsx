@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Copy, Download, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Copy, Download, CheckCircle, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -78,33 +78,13 @@ export function MikroTikScriptModal({
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadOVPN = async () => {
-    try {
-      // Get client config which contains the OVPN file content
-      const response = await api.get<{ data: { config_file: string; client_name: string } }>(`/vpn/client-config/${nasId}`);
-      const configFile = response.data.config_file;
-      const clientName = response.data.client_name || scriptData?.client_name || 'client';
-      
-      const blob = new Blob([configFile], { type: 'application/x-openvpn-profile' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${clientName}.ovpn`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Failed to download OVPN:', err);
-    }
-  };
-
   // Fetch script when modal opens
   useEffect(() => {
-    if (open && !scriptData && !loading) {
+    if (open) {
+      setScriptData(null);
       fetchScript();
     }
-  }, [open]);
+  }, [open, nasId]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -112,7 +92,7 @@ export function MikroTikScriptModal({
         <DialogHeader>
           <DialogTitle>Setup MikroTik - {nasName}</DialogTitle>
           <DialogDescription>
-            Script otomatis untuk menghubungkan MikroTik ke RADIUS server melalui VPN
+            Script otomatis untuk menghubungkan MikroTik ke RADIUS server melalui VPN (Username/Password Auth)
           </DialogDescription>
         </DialogHeader>
 
@@ -126,17 +106,64 @@ export function MikroTikScriptModal({
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>
+              {error}
+              <Button variant="link" size="sm" onClick={fetchScript} className="ml-2">
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Coba lagi
+              </Button>
+            </AlertDescription>
           </Alert>
         )}
 
         {scriptData && (
-          <Tabs defaultValue="instructions" className="w-full">
+          <Tabs defaultValue="script" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="instructions">Instruksi</TabsTrigger>
               <TabsTrigger value="script">Script</TabsTrigger>
+              <TabsTrigger value="instructions">Instruksi</TabsTrigger>
               <TabsTrigger value="info">Info Koneksi</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="script" className="space-y-4">
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-muted-foreground">
+                  Copy script dan paste ke terminal MikroTik
+                </p>
+                <div className="flex gap-2">
+                  <Button onClick={handleDownloadScript} variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download .rsc
+                  </Button>
+                  <Button onClick={handleCopyScript} size="sm">
+                    {copied ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Script
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="relative">
+                <pre className="bg-slate-950 text-slate-50 p-4 rounded-lg overflow-x-auto text-xs font-mono max-h-[500px] overflow-y-auto whitespace-pre-wrap">
+                  {scriptData.script}
+                </pre>
+              </div>
+
+              <Alert className="bg-green-50 border-green-200">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800 text-xs">
+                  <strong>Tidak perlu import certificate!</strong> Script ini menggunakan autentikasi username/password.
+                  Cukup copy-paste dan jalankan.
+                </AlertDescription>
+              </Alert>
+            </TabsContent>
 
             <TabsContent value="instructions" className="space-y-4">
               <Alert>
@@ -162,66 +189,25 @@ export function MikroTikScriptModal({
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
                 <h4 className="font-medium text-yellow-900 mb-2">⚠️ Penting:</h4>
                 <ul className="text-sm text-yellow-800 space-y-1 list-disc list-inside">
-                  <li>Pastikan MikroTik Anda memiliki akses internet</li>
-                  <li>Backup konfigurasi MikroTik sebelum menjalankan script</li>
-                  <li>Script ini akan membuat interface VPN baru bernama "ovpn-to-vps"</li>
-                  <li>RADIUS akan otomatis dikonfigurasi setelah VPN terhubung</li>
+                  <li>Pastikan MikroTik memiliki akses internet</li>
+                  <li>Backup konfigurasi sebelum menjalankan script</li>
+                  <li>Script akan membuat interface VPN "RTRWNET_VPN"</li>
+                  <li>RADIUS otomatis dikonfigurasi setelah VPN terhubung</li>
+                  <li>Failover scheduler akan auto-reconnect jika VPN terputus</li>
                 </ul>
-              </div>
-
-              <div className="flex gap-2 mt-4">
-                <Button onClick={handleDownloadScript} variant="outline">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download Script (.rsc)
-                </Button>
-                <Button onClick={handleDownloadOVPN} variant="outline">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download OVPN Config
-                </Button>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="script" className="space-y-4">
-              <div className="flex justify-between items-center">
-                <p className="text-sm text-muted-foreground">
-                  Copy script di bawah dan paste ke terminal MikroTik
-                </p>
-                <Button
-                  onClick={handleCopyScript}
-                  variant="outline"
-                  size="sm"
-                >
-                  {copied ? (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy Script
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              <div className="relative">
-                <pre className="bg-slate-950 text-slate-50 p-4 rounded-lg overflow-x-auto text-xs font-mono max-h-[500px] overflow-y-auto">
-                  {scriptData.script}
-                </pre>
               </div>
 
               <Alert>
                 <AlertDescription className="text-xs">
                   <strong>Cara paste di MikroTik:</strong>
                   <br />
-                  1. Buka Winbox atau SSH ke MikroTik
+                  1. Buka Winbox → New Terminal
                   <br />
-                  2. Buka Terminal (New Terminal)
+                  2. Klik kanan di terminal → Paste
                   <br />
-                  3. Klik kanan di terminal dan pilih "Paste"
+                  3. Tunggu script selesai dijalankan
                   <br />
-                  4. Tekan Enter untuk menjalankan
+                  4. Verifikasi dengan: <code className="bg-slate-100 px-1 rounded">/interface ovpn-client print</code>
                 </AlertDescription>
               </Alert>
             </TabsContent>
@@ -232,7 +218,7 @@ export function MikroTikScriptModal({
                   <h4 className="font-medium mb-2">VPN Server</h4>
                   <dl className="space-y-2 text-sm">
                     <div>
-                      <dt className="text-muted-foreground">Server IP:</dt>
+                      <dt className="text-muted-foreground">Server:</dt>
                       <dd className="font-mono">{scriptData.server_ip}</dd>
                     </div>
                     <div>
@@ -241,16 +227,20 @@ export function MikroTikScriptModal({
                     </div>
                     <div>
                       <dt className="text-muted-foreground">Protocol:</dt>
-                      <dd className="font-mono">UDP</dd>
+                      <dd className="font-mono">TCP (OpenVPN)</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Auth:</dt>
+                      <dd className="font-mono text-green-600">Username/Password</dd>
                     </div>
                   </dl>
                 </div>
 
                 <div className="border rounded-lg p-4">
-                  <h4 className="font-medium mb-2">Client Info</h4>
+                  <h4 className="font-medium mb-2">MikroTik Info</h4>
                   <dl className="space-y-2 text-sm">
                     <div>
-                      <dt className="text-muted-foreground">Client Name:</dt>
+                      <dt className="text-muted-foreground">Nama:</dt>
                       <dd className="font-mono">{scriptData.client_name}</dd>
                     </div>
                     <div>
@@ -258,7 +248,7 @@ export function MikroTikScriptModal({
                       <dd className="font-mono">{scriptData.client_ip}</dd>
                     </div>
                     <div>
-                      <dt className="text-muted-foreground">RADIUS IP:</dt>
+                      <dt className="text-muted-foreground">RADIUS Server:</dt>
                       <dd className="font-mono">10.8.0.1</dd>
                     </div>
                   </dl>
@@ -268,7 +258,7 @@ export function MikroTikScriptModal({
               <div className="border rounded-lg p-4">
                 <h4 className="font-medium mb-2">Verifikasi Koneksi</h4>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Setelah menjalankan script, verifikasi koneksi dengan command berikut:
+                  Setelah script dijalankan, verifikasi dengan command:
                 </p>
                 <div className="space-y-2">
                   <div className="bg-slate-950 text-slate-50 p-2 rounded font-mono text-xs">
@@ -285,10 +275,9 @@ export function MikroTikScriptModal({
 
               <Alert>
                 <AlertDescription className="text-sm">
-                  <strong>Status VPN:</strong> Setelah script dijalankan, tunggu beberapa detik
-                  untuk VPN terhubung. Cek status dengan command{' '}
+                  <strong>Status VPN:</strong> Cek dengan{' '}
                   <code className="bg-slate-100 px-1 rounded">/interface ovpn-client print</code>.
-                  Status harus "connected" (R flag).
+                  Status harus menunjukkan flag <strong>R</strong> (Running).
                 </AlertDescription>
               </Alert>
             </TabsContent>
@@ -297,7 +286,7 @@ export function MikroTikScriptModal({
 
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
+            Tutup
           </Button>
         </div>
       </DialogContent>
