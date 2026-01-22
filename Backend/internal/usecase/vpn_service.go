@@ -263,12 +263,12 @@ add action=deny redirect-to=isolir.rtrwnet.id src-address=172.30.0.0/16 comment=
 add change-tcp-mss=yes comment="default by rtrwnet (jangan dirubah)" name=RTRWVPN only-one=yes use-encryption=yes
 
 # =========================================================
-# VPN CLIENT - USERNAME/PASSWORD AUTH (NO CERTIFICATE)
+# VPN CLIENT - TCP + USERNAME/PASSWORD AUTH (NO CERTIFICATE)
 # Interface Name: RTRWNET_VPN
 # =========================================================
 :do { /interface ovpn-client rem [find name=RTRWNET_VPN] } on-error={}
 /interface ovpn-client
-add connect-to=%s port=%d name=RTRWNET_VPN profile=RTRWVPN user=%s password=%s cipher=aes256-cbc auth=sha256 disabled=no comment="VPN to RTRWNET SaaS"
+add connect-to=%s port=%d name=RTRWNET_VPN profile=RTRWVPN user=%s password=%s protocol=tcp cipher=aes256-cbc auth=sha256 disabled=no comment="VPN to RTRWNET SaaS"
 
 # =========================================================
 # ROUTING TO RADIUS SERVER VIA VPN
@@ -308,7 +308,7 @@ add disabled=no interval=30s name=rtrwnetfailover on-event="{
 :put "=========================================="
 :put ""
 :put "VPN Credentials:"
-:put "  Server  : %s:%d"
+:put "  Server  : %s:%d (TCP)"
 :put "  Username: %s"
 :put "  Password: %s"
 :put ""

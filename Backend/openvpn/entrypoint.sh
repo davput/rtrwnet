@@ -17,16 +17,12 @@ mkdir -p $LOG_DIR
 if [ ! -f "$CONFIG_FILE" ]; then
     echo ">>> Copying server.conf to PVC..."
     cat > $CONFIG_FILE << 'SERVERCONF'
-# OpenVPN Server - MikroTik Compatible (Username/Password Auth)
+# OpenVPN Server - MikroTik Compatible (TCP + Username/Password Auth)
 port 1194
-proto udp
+proto tcp
 dev tun
-
-# Server network
 server 10.8.0.0 255.255.255.0
 topology subnet
-
-# Certificates (server only - clients use username/password)
 ca /etc/openvpn/pki/ca.crt
 cert /etc/openvpn/pki/server.crt
 key /etc/openvpn/pki/server.key
@@ -41,14 +37,10 @@ username-as-common-name
 verify-client-cert none
 
 # Security - MikroTik compatible settings
-cipher AES-256-CBC
 data-ciphers AES-256-CBC
+cipher AES-256-CBC
 auth SHA256
-
-# TLS settings for MikroTik compatibility
-tls-server
 tls-version-min 1.0
-tls-cipher DEFAULT
 
 # Performance
 keepalive 10 120
@@ -56,34 +48,14 @@ persist-key
 persist-tun
 
 # Logging
-status /var/log/openvpn/status.log 10
 log-append /var/log/openvpn/openvpn.log
 verb 4
-
-# Don't drop privileges (needed for auth script)
-# user nobody
-# group nogroup
-
-# Client settings
-push "route 10.8.0.0 255.255.255.0"
-push "dhcp-option DNS 8.8.8.8"
-push "dhcp-option DNS 8.8.4.4"
 
 # Allow multiple clients with same username
 duplicate-cn
 
-# Client-to-client
-client-to-client
-
 # Max clients
 max-clients 100
-
-# Float - allow client IP to change
-float
-
-# Compatibility mode
-comp-lzo no
-push "comp-lzo no"
 SERVERCONF
 fi
 

@@ -22,11 +22,11 @@ spec:
         ports:
         - containerPort: 1194
           hostPort: 1194
-          protocol: UDP
+          protocol: TCP
           name: openvpn
         env:
         - name: OVPN_SERVER_URL
-          value: "udp://vpn.fureup.my.id"
+          value: "tcp://vpn.fureup.my.id"
         - name: OVPN_NETWORK
           value: "10.8.0.0"
         - name: OVPN_NETMASK
@@ -92,7 +92,7 @@ spec:
   ports:
   - port: 1194
     targetPort: 1194
-    protocol: UDP
+    protocol: TCP
     name: openvpn
   selector:
     app: openvpn

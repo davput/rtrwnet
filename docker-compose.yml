@@ -178,9 +178,9 @@ services:
     cap_add:
       - NET_ADMIN
     ports:
-      - "1194:1194/udp"
+      - "1194:1194/tcp"
     environment:
-      - OVPN_SERVER_URL=udp://${VPN_SERVER_IP:-vpn.fureup.my.id}
+      - OVPN_SERVER_URL=tcp://${VPN_SERVER_IP:-vpn.fureup.my.id}
       - OVPN_NETWORK=10.8.0.0
       - OVPN_NETMASK=255.255.255.0
       - OVPN_DNS1=8.8.8.8
