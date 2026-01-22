@@ -88,7 +88,7 @@ metadata:
   labels:
     app: openvpn
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   ports:
   - port: 1194
     targetPort: 1194
