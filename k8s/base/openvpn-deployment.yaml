@@ -21,6 +21,7 @@ spec:
         image: davaputra/rtrwnet-openvpn:latest
         ports:
         - containerPort: 1194
+          hostPort: 1194
           protocol: UDP
           name: openvpn
         env:
