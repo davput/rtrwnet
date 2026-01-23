@@ -22,21 +22,22 @@ server default {
         }
     }
     
-    # Authorization
+    # Authorization - order matters!
     authorize {
+        # Filter bad usernames
         filter_username
+        
+        # Preprocess hints and huntgroups
         preprocess
         
-        # Check SQL for user
+        # CHAP/MSCHAP must be before sql to set Auth-Type
+        chap
+        mschap
+        
+        # Check SQL for user credentials
         sql
         
-        # If user found, continue
-        if (ok || updated) {
-            update control {
-                Auth-Type := Accept
-            }
-        }
-        
+        # PAP must be last - it sets Auth-Type if Cleartext-Password exists
         pap
     }
     
@@ -61,33 +62,16 @@ server default {
         
         Post-Auth-Type REJECT {
             sql
-            attr_filter.access_reject
         }
     }
     
     # Accounting
     accounting {
-        detail
         sql
-        
-        # Update session table
-        if (ok) {
-            update reply {
-                &Reply-Message := "Accounting OK"
-            }
-        }
     }
     
     # Session
     session {
         sql
-    }
-    
-    # Pre-Proxy
-    pre-proxy {
-    }
-    
-    # Post-Proxy
-    post-proxy {
     }
 }
