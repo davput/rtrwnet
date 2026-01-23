@@ -130,15 +130,15 @@ rm -f /opt/etc/raddb/sites-enabled/inner-tunnel 2>/dev/null || true
 rm -f /etc/raddb/mods-enabled/eap 2>/dev/null || true
 rm -f /opt/etc/raddb/mods-enabled/eap 2>/dev/null || true
 
-echo "Starting FreeRADIUS..."
+echo "Starting FreeRADIUS in DEBUG mode..."
 
-# Find and run radiusd
+# Find and run radiusd with debug flag (-X)
 if [ -x /opt/sbin/radiusd ]; then
-    exec /opt/sbin/radiusd -f -l stdout
+    exec /opt/sbin/radiusd -X
 elif [ -x /usr/sbin/radiusd ]; then
-    exec /usr/sbin/radiusd -f -l stdout
+    exec /usr/sbin/radiusd -X
 elif [ -x /usr/sbin/freeradius ]; then
-    exec /usr/sbin/freeradius -f -l stdout
+    exec /usr/sbin/freeradius -X
 else
     echo "ERROR: radiusd binary not found!"
     exit 1
