@@ -1,22 +1,21 @@
 # SQL Module Configuration for PostgreSQL
 sql {
     driver = "rlm_sql_postgresql"
-    
     dialect = "postgresql"
     
-    # Connection info - use environment variables
-    server = "${env:DB_HOST:-postgres}"
-    port = ${env:DB_PORT:-5432}
-    login = "${env:DB_USER:-postgres}"
-    password = "${env:DB_PASSWORD:-cvkcvk12}"
-    radius_db = "${env:DB_NAME:-rtrwnet_saas}"
+    # Connection info
+    server = "postgres-service"
+    port = 5432
+    login = "postgres"
+    password = "cvkcvk12"
+    radius_db = "rtrwnet_saas"
     
     # Connection pool
     pool {
-        start = 5
-        min = 4
-        max = 32
-        spare = 3
+        start = 2
+        min = 2
+        max = 10
+        spare = 1
         uses = 0
         retry_delay = 30
         lifetime = 0
@@ -40,9 +39,92 @@ sql {
     # Remove stale session
     delete_stale_sessions = yes
     
-    # SQL queries directory
-    $INCLUDE ${modconfdir}/${.:name}/main/${dialect}/queries.conf
+    # ============================================
+    # INLINE QUERIES (not using external file)
+    # ============================================
     
-    # Logging
-    logfile = ${logdir}/sqllog.sql
+    # Authorization check query
+    authorize_check_query = "\
+        SELECT id, username, attribute, op, value \
+        FROM ${authcheck_table} \
+        WHERE username = '%{%{Stripped-User-Name}:-%{User-Name}}' \
+        AND is_active = true \
+        ORDER BY id"
+    
+    # Authorization reply query
+    authorize_reply_query = "\
+        SELECT id, username, attribute, op, value \
+        FROM ${authreply_table} \
+        WHERE username = '%{%{Stripped-User-Name}:-%{User-Name}}' \
+        AND is_active = true \
+        ORDER BY id"
+    
+    # Group membership query
+    group_membership_query = "\
+        SELECT groupname \
+        FROM ${usergroup_table} \
+        WHERE username = '%{%{Stripped-User-Name}:-%{User-Name}}' \
+        ORDER BY priority"
+    
+    # Group check query
+    authorize_group_check_query = "\
+        SELECT id, groupname, attribute, op, value \
+        FROM ${groupcheck_table} \
+        WHERE groupname = '%{SQL-Group}' \
+        ORDER BY id"
+    
+    # Group reply query
+    authorize_group_reply_query = "\
+        SELECT id, groupname, attribute, op, value \
+        FROM ${groupreply_table} \
+        WHERE groupname = '%{SQL-Group}' \
+        ORDER BY id"
+    
+    # Accounting start
+    accounting_start_query = "\
+        INSERT INTO ${acct_table1} \
+        (acctsessionid, acctuniqueid, username, nasipaddress, nasportid, \
+        acctstarttime, acctupdatetime, calledstationid, callingstationid) \
+        VALUES \
+        ('%{Acct-Session-Id}', '%{Acct-Unique-Session-Id}', \
+        '%{SQL-User-Name}', '%{NAS-IP-Address}', '%{NAS-Port-Id}', \
+        NOW(), NOW(), '%{Called-Station-Id}', '%{Calling-Station-Id}')"
+    
+    # Accounting update
+    accounting_update_query = "\
+        UPDATE ${acct_table1} \
+        SET acctupdatetime = NOW(), \
+        acctsessiontime = %{%{Acct-Session-Time}:-0}, \
+        acctinputoctets = %{%{Acct-Input-Octets}:-0}, \
+        acctoutputoctets = %{%{Acct-Output-Octets}:-0}, \
+        framedipaddress = '%{Framed-IP-Address}' \
+        WHERE acctsessionid = '%{Acct-Session-Id}' \
+        AND username = '%{SQL-User-Name}'"
+    
+    # Accounting stop
+    accounting_stop_query = "\
+        UPDATE ${acct_table1} \
+        SET acctstoptime = NOW(), \
+        acctsessiontime = %{%{Acct-Session-Time}:-0}, \
+        acctinputoctets = %{%{Acct-Input-Octets}:-0}, \
+        acctoutputoctets = %{%{Acct-Output-Octets}:-0}, \
+        acctterminatecause = '%{Acct-Terminate-Cause}', \
+        framedipaddress = '%{Framed-IP-Address}' \
+        WHERE acctsessionid = '%{Acct-Session-Id}' \
+        AND username = '%{SQL-User-Name}'"
+    
+    # Post-auth query
+    post-auth {
+        query = "\
+            INSERT INTO ${postauth_table} \
+            (username, pass, reply, authdate) \
+            VALUES ('%{SQL-User-Name}', '%{%{User-Password}:-CHAP}', \
+            '%{reply:Packet-Type}', NOW())"
+    }
+    
+    # Client query (NAS from database)
+    client_query = "\
+        SELECT id, nasname, shortname, type, secret, server \
+        FROM ${client_table} \
+        WHERE is_active = true"
 }
