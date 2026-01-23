@@ -126,6 +126,10 @@ done
 rm -f /etc/raddb/sites-enabled/inner-tunnel 2>/dev/null || true
 rm -f /opt/etc/raddb/sites-enabled/inner-tunnel 2>/dev/null || true
 
+# Disable EAP module (not needed for PPPoE/PAP auth)
+rm -f /etc/raddb/mods-enabled/eap 2>/dev/null || true
+rm -f /opt/etc/raddb/mods-enabled/eap 2>/dev/null || true
+
 echo "Starting FreeRADIUS..."
 
 # Find and run radiusd
