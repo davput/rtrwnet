@@ -17,6 +17,7 @@ spec:
       containers:
       - name: freeradius
         image: davaputra/rtrwnet-freeradius:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 1812
           protocol: UDP
