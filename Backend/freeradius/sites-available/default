@@ -1,62 +1,70 @@
-# Default virtual server configuration
+# Default virtual server for RT/RW Net SaaS
+# Handles PPPoE/RADIUS authentication from MikroTik
+
 server default {
     listen {
         type = auth
         ipaddr = *
         port = 1812
-        limit {
-            max_connections = 16
-            lifetime = 0
-            idle_timeout = 30
-        }
     }
     
     listen {
         type = acct
         ipaddr = *
         port = 1813
-        limit {
-            max_connections = 16
-            lifetime = 0
-            idle_timeout = 30
-        }
     }
-    
-    # Authorization - order matters!
+
+    # Authorization - find user and set Auth-Type
     authorize {
-        # Filter bad usernames
+        # Filter malformed usernames
         filter_username
         
-        # Preprocess hints and huntgroups
+        # Preprocess request
         preprocess
         
-        # CHAP/MSCHAP must be before sql to set Auth-Type
+        # CHAP - sets Auth-Type = CHAP if CHAP-Password present
         chap
+        
+        # MS-CHAP - sets Auth-Type = MS-CHAP if MS-CHAP attributes present
         mschap
         
-        # Check SQL for user credentials
+        # SQL lookup - gets Cleartext-Password from radcheck view
         sql
         
-        # PAP must be last - it sets Auth-Type if Cleartext-Password exists
+        # PAP - sets Auth-Type = PAP if Cleartext-Password exists
+        # MUST be after sql so password is available
         pap
     }
-    
-    # Authentication
+
+    # Authentication - verify credentials
     authenticate {
+        # PAP authentication (cleartext password comparison)
         Auth-Type PAP {
             pap
         }
         
+        # CHAP authentication
         Auth-Type CHAP {
             chap
         }
         
+        # MS-CHAP authentication (Windows/MikroTik)
         Auth-Type MS-CHAP {
             mschap
         }
     }
-    
-    # Post-Auth
+
+    # Pre-accounting
+    preacct {
+        preprocess
+    }
+
+    # Accounting - log session data
+    accounting {
+        sql
+    }
+
+    # Post-authentication - log auth attempts
     post-auth {
         sql
         
@@ -64,13 +72,8 @@ server default {
             sql
         }
     }
-    
-    # Accounting
-    accounting {
-        sql
-    }
-    
-    # Session
+
+    # Session management
     session {
         sql
     }
