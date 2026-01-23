@@ -21,8 +21,11 @@ echo "PostgreSQL is ready!"
 # Create RADIUS views and tables
 echo "Creating RADIUS views..."
 export PGPASSWORD="${DB_PASSWORD:-cvkcvk12}"
+
+# Drop and recreate views to ensure correct structure
 psql -h "${DB_HOST:-postgres}" -U "${DB_USER:-postgres}" -d "${DB_NAME:-rtrwnet_saas}" -c "
-CREATE OR REPLACE VIEW radcheck AS
+DROP VIEW IF EXISTS radcheck CASCADE;
+CREATE VIEW radcheck AS
 SELECT 
     ROW_NUMBER() OVER () AS id,
     pppoe_username AS username,
@@ -37,7 +40,8 @@ AND status = 'active';
 " || echo "Warning: Could not create radcheck view"
 
 psql -h "${DB_HOST:-postgres}" -U "${DB_USER:-postgres}" -d "${DB_NAME:-rtrwnet_saas}" -c "
-CREATE OR REPLACE VIEW radreply AS
+DROP VIEW IF EXISTS radreply CASCADE;
+CREATE VIEW radreply AS
 SELECT 
     ROW_NUMBER() OVER () AS id,
     pppoe_username AS username,
