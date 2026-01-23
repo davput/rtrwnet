@@ -1,18 +1,27 @@
 #!/bin/sh
 set -e
 
+echo "=== FreeRADIUS Entrypoint ==="
+
 # Wait for PostgreSQL to be ready
 echo "Waiting for PostgreSQL at ${DB_HOST:-postgres}:${DB_PORT:-5432}..."
+max_attempts=30
+attempt=0
 until pg_isready -h "${DB_HOST:-postgres}" -p "${DB_PORT:-5432}" -U "${DB_USER:-postgres}" 2>/dev/null; do
-    echo "PostgreSQL is unavailable - sleeping"
+    attempt=$((attempt + 1))
+    if [ $attempt -ge $max_attempts ]; then
+        echo "ERROR: PostgreSQL not ready after $max_attempts attempts"
+        exit 1
+    fi
+    echo "PostgreSQL is unavailable - sleeping (attempt $attempt/$max_attempts)"
     sleep 2
 done
 echo "PostgreSQL is ready!"
 
-# Create radcheck view if not exists
+# Create RADIUS views and tables
 echo "Creating RADIUS views..."
-PGPASSWORD="${DB_PASSWORD:-cvkcvk12}" psql -h "${DB_HOST:-postgres}" -U "${DB_USER:-postgres}" -d "${DB_NAME:-rtrwnet_saas}" << 'SQLEOF'
--- radcheck view - returns Cleartext-Password for PAP auth
+export PGPASSWORD="${DB_PASSWORD:-cvkcvk12}"
+psql -h "${DB_HOST:-postgres}" -U "${DB_USER:-postgres}" -d "${DB_NAME:-rtrwnet_saas}" -c "
 CREATE OR REPLACE VIEW radcheck AS
 SELECT 
     ROW_NUMBER() OVER () AS id,
@@ -25,8 +34,9 @@ FROM customers
 WHERE pppoe_username IS NOT NULL 
 AND pppoe_username != ''
 AND status = 'active';
+" || echo "Warning: Could not create radcheck view"
 
--- radreply view - returns reply attributes (like static IP)
+psql -h "${DB_HOST:-postgres}" -U "${DB_USER:-postgres}" -d "${DB_NAME:-rtrwnet_saas}" -c "
 CREATE OR REPLACE VIEW radreply AS
 SELECT 
     ROW_NUMBER() OVER () AS id,
@@ -41,8 +51,9 @@ AND pppoe_username != ''
 AND status = 'active'
 AND static_ip IS NOT NULL 
 AND static_ip != '';
+" || echo "Warning: Could not create radreply view"
 
--- Create empty group tables if not exist
+psql -h "${DB_HOST:-postgres}" -U "${DB_USER:-postgres}" -d "${DB_NAME:-rtrwnet_saas}" -c "
 CREATE TABLE IF NOT EXISTS radgroupcheck (
     id SERIAL PRIMARY KEY,
     groupname VARCHAR(64) NOT NULL,
@@ -50,7 +61,6 @@ CREATE TABLE IF NOT EXISTS radgroupcheck (
     op VARCHAR(2) DEFAULT ':=',
     value VARCHAR(253) NOT NULL
 );
-
 CREATE TABLE IF NOT EXISTS radgroupreply (
     id SERIAL PRIMARY KEY,
     groupname VARCHAR(64) NOT NULL,
@@ -58,15 +68,12 @@ CREATE TABLE IF NOT EXISTS radgroupreply (
     op VARCHAR(2) DEFAULT ':=',
     value VARCHAR(253) NOT NULL
 );
-
 CREATE TABLE IF NOT EXISTS radusergroup (
     id SERIAL PRIMARY KEY,
     username VARCHAR(64) NOT NULL,
     groupname VARCHAR(64) NOT NULL,
     priority INTEGER DEFAULT 1
 );
-
--- Create accounting table if not exist
 CREATE TABLE IF NOT EXISTS radacct (
     radacctid BIGSERIAL PRIMARY KEY,
     acctsessionid VARCHAR(64) NOT NULL,
@@ -92,8 +99,6 @@ CREATE TABLE IF NOT EXISTS radacct (
     framedprotocol VARCHAR(32),
     framedipaddress VARCHAR(15)
 );
-
--- Create post-auth log table if not exist
 CREATE TABLE IF NOT EXISTS radpostauth (
     id BIGSERIAL PRIMARY KEY,
     username VARCHAR(64) NOT NULL,
@@ -101,15 +106,9 @@ CREATE TABLE IF NOT EXISTS radpostauth (
     reply VARCHAR(32),
     authdate TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+" || echo "Warning: Could not create RADIUS tables"
 
--- Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_radacct_username ON radacct(username);
-CREATE INDEX IF NOT EXISTS idx_radacct_acctsessionid ON radacct(acctsessionid);
-CREATE INDEX IF NOT EXISTS idx_radacct_nasipaddress ON radacct(nasipaddress);
-CREATE INDEX IF NOT EXISTS idx_radpostauth_username ON radpostauth(username);
-SQLEOF
-
-echo "RADIUS views created successfully!"
+echo "RADIUS setup complete!"
 
 # Update SQL config with environment variables
 for RADDB_PATH in /etc/raddb /opt/etc/raddb; do
@@ -127,20 +126,16 @@ done
 rm -f /etc/raddb/sites-enabled/inner-tunnel 2>/dev/null || true
 rm -f /opt/etc/raddb/sites-enabled/inner-tunnel 2>/dev/null || true
 
-echo "Starting FreeRADIUS in debug mode..."
+echo "Starting FreeRADIUS..."
 
-# Find radiusd binary and run in foreground
+# Find and run radiusd
 if [ -x /opt/sbin/radiusd ]; then
     exec /opt/sbin/radiusd -f -l stdout
-elif command -v radiusd >/dev/null 2>&1; then
-    exec radiusd -f -l stdout
-elif command -v freeradius >/dev/null 2>&1; then
-    exec freeradius -f -l stdout
 elif [ -x /usr/sbin/radiusd ]; then
     exec /usr/sbin/radiusd -f -l stdout
 elif [ -x /usr/sbin/freeradius ]; then
     exec /usr/sbin/freeradius -f -l stdout
 else
-    echo "ERROR: radiusd/freeradius binary not found!"
+    echo "ERROR: radiusd binary not found!"
     exit 1
 fi
