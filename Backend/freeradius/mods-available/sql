@@ -1,10 +1,9 @@
 # SQL Module Configuration for PostgreSQL
 sql {
     driver = "rlm_sql_postgresql"
-    
     dialect = "postgresql"
     
-    # Connection info - use environment variables
+    # Connection info
     server = "${env:DB_HOST:-postgres}"
     port = ${env:DB_PORT:-5432}
     login = "${env:DB_USER:-postgres}"
@@ -13,17 +12,17 @@ sql {
     
     # Connection pool
     pool {
-        start = 5
-        min = 4
-        max = 32
-        spare = 3
+        start = 2
+        min = 2
+        max = 10
+        spare = 1
         uses = 0
         retry_delay = 30
         lifetime = 0
         idle_timeout = 60
     }
     
-    # Query configuration
+    # Read NAS clients from database
     read_clients = yes
     client_table = "radius_nas"
     
@@ -32,17 +31,99 @@ sql {
     acct_table2 = "radacct"
     postauth_table = "radpostauth"
     authcheck_table = "radcheck"
-    groupcheck_table = "radgroupcheck"
     authreply_table = "radreply"
+    groupcheck_table = "radgroupcheck"
     groupreply_table = "radgroupreply"
     usergroup_table = "radusergroup"
     
-    # Remove stale session
+    # Remove stale sessions
     delete_stale_sessions = yes
     
-    # SQL queries directory
-    $INCLUDE ${modconfdir}/${.:name}/main/${dialect}/queries.conf
+    # ============ QUERIES ============
     
-    # Logging
-    logfile = ${logdir}/sqllog.sql
+    # Authorization
+    authorize_check_query = "\
+        SELECT id, username, attribute, value, op \
+        FROM ${authcheck_table} \
+        WHERE username = '%{%{Stripped-User-Name}:-%{User-Name}}' \
+        AND is_active = true"
+    
+    authorize_reply_query = "\
+        SELECT id, username, attribute, value, op \
+        FROM ${authreply_table} \
+        WHERE username = '%{%{Stripped-User-Name}:-%{User-Name}}' \
+        AND is_active = true"
+    
+    group_membership_query = "\
+        SELECT groupname FROM ${usergroup_table} \
+        WHERE username = '%{%{Stripped-User-Name}:-%{User-Name}}' \
+        ORDER BY priority"
+    
+    # Client/NAS query
+    client_query = "\
+        SELECT id, nasname, shortname, type, secret, server \
+        FROM ${client_table} WHERE is_active = true"
+    
+    # Accounting - Start
+    accounting {
+        type {
+            start {
+                query = "\
+                    INSERT INTO ${acct_table1} \
+                    (acctsessionid, acctuniqueid, username, nasipaddress, \
+                    nasportid, nasporttype, acctstarttime, acctupdatetime, \
+                    calledstationid, callingstationid, servicetype, \
+                    framedprotocol, framedipaddress) \
+                    VALUES \
+                    ('%{Acct-Session-Id}', '%{Acct-Unique-Session-Id}', \
+                    '%{%{Stripped-User-Name}:-%{User-Name}}', '%{NAS-IP-Address}', \
+                    '%{%{NAS-Port-ID}:-%{NAS-Port}}', '%{NAS-Port-Type}', \
+                    NOW(), NOW(), \
+                    '%{Called-Station-Id}', '%{Calling-Station-Id}', \
+                    '%{Service-Type}', '%{Framed-Protocol}', '%{Framed-IP-Address}')"
+            }
+            
+            interim-update {
+                query = "\
+                    UPDATE ${acct_table1} SET \
+                    acctupdatetime = NOW(), \
+                    acctsessiontime = %{%{Acct-Session-Time}:-0}, \
+                    acctinputoctets = %{%{Acct-Input-Octets}:-0}, \
+                    acctoutputoctets = %{%{Acct-Output-Octets}:-0}, \
+                    framedipaddress = '%{Framed-IP-Address}' \
+                    WHERE acctsessionid = '%{Acct-Session-Id}' \
+                    AND username = '%{%{Stripped-User-Name}:-%{User-Name}}' \
+                    AND nasipaddress = '%{NAS-IP-Address}'"
+            }
+            
+            stop {
+                query = "\
+                    UPDATE ${acct_table1} SET \
+                    acctstoptime = NOW(), \
+                    acctsessiontime = %{%{Acct-Session-Time}:-0}, \
+                    acctinputoctets = %{%{Acct-Input-Octets}:-0}, \
+                    acctoutputoctets = %{%{Acct-Output-Octets}:-0}, \
+                    acctterminatecause = '%{Acct-Terminate-Cause}' \
+                    WHERE acctsessionid = '%{Acct-Session-Id}' \
+                    AND username = '%{%{Stripped-User-Name}:-%{User-Name}}' \
+                    AND nasipaddress = '%{NAS-IP-Address}'"
+            }
+            
+            accounting-on {
+                query = "SELECT 1"
+            }
+            
+            accounting-off {
+                query = "SELECT 1"
+            }
+        }
+    }
+    
+    # Post-Auth logging
+    post-auth {
+        query = "\
+            INSERT INTO ${postauth_table} (username, pass, reply, authdate) \
+            VALUES ('%{%{Stripped-User-Name}:-%{User-Name}}', \
+            '%{%{User-Password}:-%{Chap-Password}}', '%{reply:Packet-Type}', NOW())"
+    }
 }
