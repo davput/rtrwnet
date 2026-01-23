@@ -22,6 +22,9 @@ server default {
         # Preprocess request
         preprocess
         
+        # Handle suffix/prefix and set SQL-User-Name
+        suffix
+        
         # CHAP - sets Auth-Type = CHAP if CHAP-Password present
         chap
         
