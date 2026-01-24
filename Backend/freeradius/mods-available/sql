@@ -73,12 +73,15 @@ sql {
                     calledstationid, callingstationid, servicetype, \
                     framedprotocol, framedipaddress) \
                     VALUES \
-                    ('%{Acct-Session-Id}', '%{Acct-Unique-Session-Id}', \
+                    ('%{Acct-Session-Id}', COALESCE(NULLIF('%{Acct-Unique-Session-Id}', ''), '%{Acct-Session-Id}-%{NAS-IP-Address}'), \
                     '%{%{Stripped-User-Name}:-%{User-Name}}', '%{NAS-IP-Address}', \
                     '%{%{NAS-Port-ID}:-%{NAS-Port}}', '%{NAS-Port-Type}', \
                     NOW(), NOW(), \
                     '%{Called-Station-Id}', '%{Calling-Station-Id}', \
-                    '%{Service-Type}', '%{Framed-Protocol}', '%{Framed-IP-Address}')"
+                    '%{Service-Type}', '%{Framed-Protocol}', '%{Framed-IP-Address}') \
+                    ON CONFLICT (acctuniqueid) DO UPDATE SET \
+                    acctupdatetime = NOW(), \
+                    framedipaddress = EXCLUDED.framedipaddress"
             }
             
             interim-update {
