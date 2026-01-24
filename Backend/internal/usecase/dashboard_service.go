@@ -429,6 +429,11 @@ func (s *dashboardService) UpdateCustomer(ctx context.Context, tenantID, custome
 	if customer.TenantID != tenantID {
 		return errors.ErrUnauthorized
 	}
+
+	// Track if we need to sync RADIUS
+	oldPPPoEUsername := customer.PPPoEUsername
+	oldServicePlanID := customer.ServicePlanID
+	needsRadiusSync := false
 	
 	// Update fields only if provided
 	if req.Name != "" {
@@ -443,11 +448,15 @@ func (s *dashboardService) UpdateCustomer(ctx context.Context, tenantID, custome
 	customer.Address = req.Address
 	customer.Latitude = req.Latitude
 	customer.Longitude = req.Longitude
-	if req.ServicePlanID != "" {
+	if req.ServicePlanID != "" && req.ServicePlanID != oldServicePlanID {
 		customer.ServicePlanID = req.ServicePlanID
+		needsRadiusSync = true
 	}
 	if req.ServiceType != "" {
 		customer.ServiceType = req.ServiceType
+	}
+	if req.PPPoEUsername != oldPPPoEUsername {
+		needsRadiusSync = true
 	}
 	customer.PPPoEUsername = req.PPPoEUsername
 	customer.PPPoEPassword = req.PPPoEPassword
@@ -469,9 +478,57 @@ func (s *dashboardService) UpdateCustomer(ctx context.Context, tenantID, custome
 		logger.Error("Failed to update customer: %v", err)
 		return errors.ErrInternalServer
 	}
+
+	// Sync RADIUS user if PPPoE settings or service plan changed
+	if needsRadiusSync && customer.ServiceType == entity.ServiceTypePPPoE && customer.PPPoEUsername != "" {
+		s.syncRadiusUserForCustomer(ctx, tenantID, customer, oldPPPoEUsername)
+	}
 	
 	logger.Info("Customer updated: %s (%s)", customer.Name, customer.ID)
 	return nil
+}
+
+// syncRadiusUserForCustomer syncs RADIUS user when customer is updated
+func (s *dashboardService) syncRadiusUserForCustomer(ctx context.Context, tenantID string, customer *entity.Customer, oldUsername string) {
+	freeradiusSync := NewFreeRADIUSSyncService(s.db)
+
+	// If username changed, delete old RADIUS user
+	if oldUsername != "" && oldUsername != customer.PPPoEUsername {
+		freeradiusSync.DeleteUser(oldUsername)
+		s.db.Where("username = ? AND tenant_id = ?", oldUsername, tenantID).Delete(&entity.RadiusUser{})
+	}
+
+	// Find or create RADIUS user
+	var radiusUser entity.RadiusUser
+	err := s.db.Where("username = ? AND tenant_id = ?", customer.PPPoEUsername, tenantID).First(&radiusUser).Error
+	
+	if err != nil {
+		// Create new RADIUS user
+		s.createRadiusUserForCustomer(ctx, tenantID, customer)
+		return
+	}
+
+	// Update existing RADIUS user
+	radiusUser.PasswordPlain = customer.PPPoEPassword
+	radiusUser.IPAddress = customer.StaticIP
+	radiusUser.IsActive = customer.Status == entity.CustomerStatusActive
+
+	// Get profile name from service plan
+	if customer.ServicePlanID != "" {
+		var plan entity.ServicePlan
+		if err := s.db.Where("id = ?", customer.ServicePlanID).First(&plan).Error; err == nil {
+			radiusUser.ProfileName = plan.Name
+		}
+	}
+
+	s.db.Save(&radiusUser)
+
+	// Sync to FreeRADIUS
+	if err := freeradiusSync.SyncRadiusUser(&radiusUser); err != nil {
+		logger.Error("Failed to sync RADIUS user to FreeRADIUS: %v", err)
+	} else {
+		logger.Info("RADIUS user synced to FreeRADIUS: %s", customer.PPPoEUsername)
+	}
 }
 
 func (s *dashboardService) DeleteCustomer(ctx context.Context, tenantID, customerID string) error {
@@ -1018,7 +1075,7 @@ func (s *dashboardService) GetPlanLimits(ctx context.Context, tenantID string) (
 	}, nil
 }
 
-// createRadiusUserForCustomer creates a RADIUS user for PPPoE customer
+// createRadiusUserForCustomer creates a RADIUS user for PPPoE customer and syncs to FreeRADIUS
 func (s *dashboardService) createRadiusUserForCustomer(ctx context.Context, tenantID string, customer *entity.Customer) {
 	// Check if RADIUS user already exists
 	var existingUser entity.RadiusUser
@@ -1055,6 +1112,20 @@ func (s *dashboardService) createRadiusUserForCustomer(ctx context.Context, tena
 		return
 	}
 
+	// Sync to FreeRADIUS tables (radcheck, radreply) with rate limit from service plan
+	freeradiusSync := NewFreeRADIUSSyncService(s.db)
+	
+	// Load customer with service plan for sync
+	var customerWithPlan entity.Customer
+	if err := s.db.Preload("ServicePlan").Where("id = ?", customer.ID).First(&customerWithPlan).Error; err == nil {
+		radiusUser.CustomerID = &customerWithPlan.ID
+		if err := freeradiusSync.SyncRadiusUser(radiusUser); err != nil {
+			logger.Error("Failed to sync RADIUS user to FreeRADIUS for customer %s: %v", customer.Name, err)
+		} else {
+			logger.Info("RADIUS user synced to FreeRADIUS: %s", customer.PPPoEUsername)
+		}
+	}
+
 	logger.Info("RADIUS user created for customer: %s (%s)", customer.Name, customer.PPPoEUsername)
 }
 
@@ -1080,13 +1151,19 @@ func (s *dashboardService) ActivateCustomer(ctx context.Context, tenantID, custo
 		return errors.ErrInternalServer
 	}
 
-	// Activate RADIUS user if exists
+	// Activate RADIUS user if exists and sync to FreeRADIUS
 	if customer.PPPoEUsername != "" {
 		var radiusUser entity.RadiusUser
 		if err := s.db.Where("username = ? AND tenant_id = ?", customer.PPPoEUsername, tenantID).First(&radiusUser).Error; err == nil {
 			radiusUser.IsActive = true
 			s.db.Save(&radiusUser)
-			logger.Info("RADIUS user activated: %s", customer.PPPoEUsername)
+			
+			// Sync to FreeRADIUS
+			freeradiusSync := NewFreeRADIUSSyncService(s.db)
+			if err := freeradiusSync.SyncRadiusUser(&radiusUser); err != nil {
+				logger.Error("Failed to sync activated RADIUS user to FreeRADIUS: %v", err)
+			}
+			logger.Info("RADIUS user activated and synced: %s", customer.PPPoEUsername)
 		}
 	}
 
@@ -1114,13 +1191,19 @@ func (s *dashboardService) SuspendCustomer(ctx context.Context, tenantID, custom
 		return errors.ErrInternalServer
 	}
 
-	// Suspend RADIUS user if exists
+	// Suspend RADIUS user if exists and sync to FreeRADIUS (removes from radcheck/radreply)
 	if customer.PPPoEUsername != "" {
 		var radiusUser entity.RadiusUser
 		if err := s.db.Where("username = ? AND tenant_id = ?", customer.PPPoEUsername, tenantID).First(&radiusUser).Error; err == nil {
 			radiusUser.IsActive = false
 			s.db.Save(&radiusUser)
-			logger.Info("RADIUS user suspended: %s", customer.PPPoEUsername)
+			
+			// Sync to FreeRADIUS (will remove user since inactive)
+			freeradiusSync := NewFreeRADIUSSyncService(s.db)
+			if err := freeradiusSync.SyncRadiusUser(&radiusUser); err != nil {
+				logger.Error("Failed to sync suspended RADIUS user to FreeRADIUS: %v", err)
+			}
+			logger.Info("RADIUS user suspended and synced: %s", customer.PPPoEUsername)
 		}
 	}
 
@@ -1148,13 +1231,17 @@ func (s *dashboardService) TerminateCustomer(ctx context.Context, tenantID, cust
 		return errors.ErrInternalServer
 	}
 
-	// Deactivate RADIUS user if exists
+	// Deactivate RADIUS user if exists and remove from FreeRADIUS
 	if customer.PPPoEUsername != "" {
 		var radiusUser entity.RadiusUser
 		if err := s.db.Where("username = ? AND tenant_id = ?", customer.PPPoEUsername, tenantID).First(&radiusUser).Error; err == nil {
 			radiusUser.IsActive = false
 			s.db.Save(&radiusUser)
-			logger.Info("RADIUS user terminated: %s", customer.PPPoEUsername)
+			
+			// Remove from FreeRADIUS
+			freeradiusSync := NewFreeRADIUSSyncService(s.db)
+			freeradiusSync.DeleteUser(customer.PPPoEUsername)
+			logger.Info("RADIUS user terminated and removed from FreeRADIUS: %s", customer.PPPoEUsername)
 		}
 	}
 
