@@ -54,46 +54,81 @@ sql {
         SELECT id, nasname, shortname, type, secret, server \
         FROM radius_nas WHERE is_active = true"
     
-    # Accounting queries
-    accounting_start_query = "\
-        INSERT INTO radacct \
-        (acctsessionid, acctuniqueid, username, nasipaddress, \
-        nasportid, nasporttype, acctstarttime, acctupdatetime, \
-        calledstationid, callingstationid, servicetype, \
-        framedprotocol, framedipaddress) \
-        VALUES \
-        ('%{Acct-Session-Id}', '%{Acct-Unique-Session-Id}', \
-        '%{%{Stripped-User-Name}:-%{User-Name}}', '%{NAS-IP-Address}', \
-        '%{%{NAS-Port-ID}:-%{NAS-Port}}', '%{NAS-Port-Type}', \
-        NOW(), NOW(), \
-        '%{Called-Station-Id}', '%{Calling-Station-Id}', \
-        '%{Service-Type}', '%{Framed-Protocol}', '%{Framed-IP-Address}')"
-    
-    accounting_update_query = "\
-        UPDATE radacct SET \
-        acctupdatetime = NOW(), \
-        acctsessiontime = %{%{Acct-Session-Time}:-0}, \
-        acctinputoctets = %{%{Acct-Input-Octets}:-0}, \
-        acctoutputoctets = %{%{Acct-Output-Octets}:-0}, \
-        framedipaddress = '%{Framed-IP-Address}' \
-        WHERE acctsessionid = '%{Acct-Session-Id}' \
-        AND username = '%{%{Stripped-User-Name}:-%{User-Name}}' \
-        AND nasipaddress = '%{NAS-IP-Address}'"
-    
-    accounting_stop_query = "\
-        UPDATE radacct SET \
-        acctstoptime = NOW(), \
-        acctsessiontime = %{%{Acct-Session-Time}:-0}, \
-        acctinputoctets = %{%{Acct-Input-Octets}:-0}, \
-        acctoutputoctets = %{%{Acct-Output-Octets}:-0}, \
-        acctterminatecause = '%{Acct-Terminate-Cause}' \
-        WHERE acctsessionid = '%{Acct-Session-Id}' \
-        AND username = '%{%{Stripped-User-Name}:-%{User-Name}}' \
-        AND nasipaddress = '%{NAS-IP-Address}'"
-    
     # Post-Auth logging
     postauth_query = "\
         INSERT INTO radpostauth (username, pass, reply, authdate) \
         VALUES ('%{%{Stripped-User-Name}:-%{User-Name}}', \
-        '%{%{User-Password}:-%{Chap-Password}}', '%{reply:Packet-Type}', NOW())"
+        '%{%{User-Password}:-CHAP}', '%{reply:Packet-Type}', NOW())"
+    
+    # Accounting queries - using reference format for FreeRADIUS 3.x
+    accounting {
+        reference = "%{tolower:type.%{Acct-Status-Type}.query}"
+        
+        type {
+            start {
+                query = "\
+                    INSERT INTO radacct \
+                    (acctsessionid, acctuniqueid, username, nasipaddress, \
+                    nasportid, nasporttype, acctstarttime, acctupdatetime, \
+                    calledstationid, callingstationid, servicetype, \
+                    framedprotocol, framedipaddress) \
+                    VALUES \
+                    ('%{Acct-Session-Id}', '%{Acct-Unique-Session-Id}', \
+                    '%{%{Stripped-User-Name}:-%{User-Name}}', '%{NAS-IP-Address}', \
+                    '%{%{NAS-Port-ID}:-%{NAS-Port}}', '%{NAS-Port-Type}', \
+                    NOW(), NOW(), \
+                    '%{Called-Station-Id}', '%{Calling-Station-Id}', \
+                    '%{Service-Type}', '%{Framed-Protocol}', '%{Framed-IP-Address}')"
+            }
+            
+            interim-update {
+                query = "\
+                    UPDATE radacct SET \
+                    acctupdatetime = NOW(), \
+                    acctsessiontime = %{%{Acct-Session-Time}:-0}, \
+                    acctinputoctets = %{%{Acct-Input-Octets}:-0}, \
+                    acctoutputoctets = %{%{Acct-Output-Octets}:-0}, \
+                    framedipaddress = '%{Framed-IP-Address}' \
+                    WHERE acctsessionid = '%{Acct-Session-Id}' \
+                    AND username = '%{%{Stripped-User-Name}:-%{User-Name}}' \
+                    AND nasipaddress = '%{NAS-IP-Address}'"
+            }
+            
+            stop {
+                query = "\
+                    UPDATE radacct SET \
+                    acctstoptime = NOW(), \
+                    acctsessiontime = %{%{Acct-Session-Time}:-0}, \
+                    acctinputoctets = %{%{Acct-Input-Octets}:-0}, \
+                    acctoutputoctets = %{%{Acct-Output-Octets}:-0}, \
+                    acctterminatecause = '%{Acct-Terminate-Cause}' \
+                    WHERE acctsessionid = '%{Acct-Session-Id}' \
+                    AND username = '%{%{Stripped-User-Name}:-%{User-Name}}' \
+                    AND nasipaddress = '%{NAS-IP-Address}'"
+            }
+            
+            accounting-on {
+                query = "\
+                    UPDATE radacct SET \
+                    acctstoptime = NOW(), \
+                    acctterminatecause = 'NAS-Reboot' \
+                    WHERE acctstoptime IS NULL \
+                    AND nasipaddress = '%{NAS-IP-Address}'"
+            }
+            
+            accounting-off {
+                query = "\
+                    UPDATE radacct SET \
+                    acctstoptime = NOW(), \
+                    acctterminatecause = 'NAS-Reboot' \
+                    WHERE acctstoptime IS NULL \
+                    AND nasipaddress = '%{NAS-IP-Address}'"
+            }
+        }
+    }
+    
+    # Post-auth section
+    post-auth {
+        query = "${..postauth_query}"
+    }
 }
