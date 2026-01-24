@@ -181,6 +181,9 @@ func (s *dashboardService) ListCustomers(ctx context.Context, tenantID string, p
 		filters["sort_order"] = params.SortOrder
 	}
 	
+	// Sync online status from radacct before fetching customers
+	s.syncOnlineStatusFromRadacct(ctx, tenantID)
+	
 	customers, total, err := s.customerRepo.FindByTenantID(ctx, tenantID, params.Page, params.PerPage, filters)
 	if err != nil {
 		logger.Error("Failed to list customers: %v", err)
@@ -195,6 +198,73 @@ func (s *dashboardService) ListCustomers(ctx context.Context, tenantID string, p
 	}, nil
 }
 
+// syncOnlineStatusFromRadacct updates customer online status from radacct table
+func (s *dashboardService) syncOnlineStatusFromRadacct(ctx context.Context, tenantID string) {
+	// Get all active sessions from radacct (where acctstoptime IS NULL)
+	var activeSessions []struct {
+		Username        string `gorm:"column:username"`
+		FramedIPAddress string `gorm:"column:framedipaddress"`
+	}
+
+	s.db.WithContext(ctx).
+		Table("radacct").
+		Select("username, framedipaddress").
+		Where("acctstoptime IS NULL").
+		Find(&activeSessions)
+
+	// Create map of online usernames
+	onlineUsers := make(map[string]string) // username -> IP
+	for _, session := range activeSessions {
+		onlineUsers[session.Username] = session.FramedIPAddress
+	}
+
+	// Update all customers for this tenant - set offline first
+	s.db.WithContext(ctx).
+		Model(&entity.Customer{}).
+		Where("tenant_id = ?", tenantID).
+		Updates(map[string]interface{}{
+			"is_online":  false,
+			"ip_address": "",
+		})
+
+	// Then set online customers based on PPPoE username
+	now := time.Now()
+	for username, ip := range onlineUsers {
+		s.db.WithContext(ctx).
+			Model(&entity.Customer{}).
+			Where("tenant_id = ? AND pppoe_username = ?", tenantID, username).
+			Updates(map[string]interface{}{
+				"is_online":  true,
+				"ip_address": ip,
+				"last_seen":  now,
+			})
+	}
+}
+
+// getCustomerOnlineStatusFromRadacct checks if a customer is online from radacct
+func (s *dashboardService) getCustomerOnlineStatusFromRadacct(ctx context.Context, pppoeUsername string) (bool, string) {
+	if pppoeUsername == "" {
+		return false, ""
+	}
+
+	var session struct {
+		FramedIPAddress string `gorm:"column:framedipaddress"`
+	}
+
+	err := s.db.WithContext(ctx).
+		Table("radacct").
+		Select("framedipaddress").
+		Where("username = ? AND acctstoptime IS NULL", pppoeUsername).
+		Order("acctstarttime DESC").
+		First(&session).Error
+
+	if err != nil {
+		return false, ""
+	}
+
+	return true, session.FramedIPAddress
+}
+
 func (s *dashboardService) GetCustomerDetail(ctx context.Context, tenantID, customerID string) (*dto.CustomerDetailResponse, error) {
 	customer, err := s.customerRepo.FindByID(ctx, customerID)
 	if err != nil || customer == nil {
@@ -203,6 +273,13 @@ func (s *dashboardService) GetCustomerDetail(ctx context.Context, tenantID, cust
 	
 	if customer.TenantID != tenantID {
 		return nil, errors.ErrUnauthorized
+	}
+
+	// Check real-time online status from radacct
+	isOnline, ipAddress := s.getCustomerOnlineStatusFromRadacct(ctx, customer.PPPoEUsername)
+	customer.IsOnline = isOnline
+	if ipAddress != "" {
+		customer.IPAddress = ipAddress
 	}
 	
 	// Get payment history

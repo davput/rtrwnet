@@ -560,6 +560,10 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 				// Sessions
 				radius.GET("/sessions/active", radiusHandler.GetActiveSessions)
 
+				// Online status
+				radius.POST("/sync-online-status", radiusHandler.SyncOnlineStatus)
+				radius.GET("/customers/:customer_id/online-status", radiusHandler.GetCustomerOnlineStatus)
+
 				// Script generator
 				radius.POST("/generate-script", radiusHandler.GenerateMikroTikScript)
 				radius.GET("/server-config", radiusHandler.GetServerConfig)

@@ -873,3 +873,50 @@ func generateMikroTikSetupScript(nasName, secret, vpnServerIP, radiusInternalIP 
 :put "============================================"
 `, nasName, vpnServerIP, nasName, nasName, radiusInternalIP, secret, nasName, radiusInternalIP, radiusInternalIP, nasName)
 }
+
+
+// ==================== Online Status ====================
+
+// SyncOnlineStatus godoc
+// @Summary Sync Customer Online Status
+// @Description Sync online status from radacct to customers table
+// @Tags radius
+// @Produce json
+// @Param X-Tenant-ID header string true "Tenant ID"
+// @Success 200 {object} response.Response
+// @Security BearerAuth
+// @Router /radius/sync-online-status [post]
+func (h *RadiusHandler) SyncOnlineStatus(c *gin.Context) {
+	tenantID := c.GetString("tenant_id")
+
+	if err := h.radiusService.SyncCustomerOnlineStatus(c.Request.Context(), tenantID); err != nil {
+		response.SimpleError(c, http.StatusInternalServerError, "Failed to sync online status", err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Online status synced successfully", nil)
+}
+
+// GetCustomerOnlineStatus godoc
+// @Summary Get Customer Online Status
+// @Description Get real-time online status for a customer from radacct
+// @Tags radius
+// @Produce json
+// @Param X-Tenant-ID header string true "Tenant ID"
+// @Param customer_id path string true "Customer ID"
+// @Success 200 {object} response.Response{data=usecase.CustomerOnlineStatus}
+// @Failure 404 {object} response.Response
+// @Security BearerAuth
+// @Router /radius/customers/{customer_id}/online-status [get]
+func (h *RadiusHandler) GetCustomerOnlineStatus(c *gin.Context) {
+	tenantID := c.GetString("tenant_id")
+	customerID := c.Param("customer_id")
+
+	status, err := h.radiusService.GetCustomerOnlineStatus(c.Request.Context(), tenantID, customerID)
+	if err != nil {
+		response.SimpleError(c, http.StatusNotFound, "Customer not found", err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Online status retrieved", status)
+}

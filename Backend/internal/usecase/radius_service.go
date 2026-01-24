@@ -47,6 +47,23 @@ type RadiusService interface {
 
 	// Auto-create user from customer
 	CreateUserFromCustomer(ctx context.Context, tenantID string, customer *entity.Customer) (*entity.RadiusUser, error)
+
+	// Online status sync
+	SyncCustomerOnlineStatus(ctx context.Context, tenantID string) error
+	GetCustomerOnlineStatus(ctx context.Context, tenantID, customerID string) (*CustomerOnlineStatus, error)
+}
+
+// CustomerOnlineStatus represents online status from radacct
+type CustomerOnlineStatus struct {
+	CustomerID    string     `json:"customer_id"`
+	Username      string     `json:"username"`
+	IsOnline      bool       `json:"is_online"`
+	IPAddress     string     `json:"ip_address"`
+	SessionStart  *time.Time `json:"session_start"`
+	SessionTime   int        `json:"session_time"`
+	BytesIn       int64      `json:"bytes_in"`
+	BytesOut      int64      `json:"bytes_out"`
+	NASIPAddress  string     `json:"nas_ip_address"`
 }
 
 // Request/Response types
@@ -739,4 +756,121 @@ func generateRandomPassword(length int) string {
 	bytes := make([]byte, length/2)
 	rand.Read(bytes)
 	return hex.EncodeToString(bytes)
+}
+
+
+// SyncCustomerOnlineStatus syncs online status from radacct to customers table
+func (s *radiusService) SyncCustomerOnlineStatus(ctx context.Context, tenantID string) error {
+	// Get all active sessions from radacct (where acctstoptime IS NULL)
+	var activeSessions []struct {
+		Username        string    `gorm:"column:username"`
+		FramedIPAddress string    `gorm:"column:framedipaddress"`
+		AcctStartTime   time.Time `gorm:"column:acctstarttime"`
+	}
+
+	err := s.db.WithContext(ctx).
+		Table("radacct").
+		Select("username, framedipaddress, acctstarttime").
+		Where("acctstoptime IS NULL").
+		Find(&activeSessions).Error
+	if err != nil {
+		logger.Error("Failed to get active sessions: %v", err)
+		return err
+	}
+
+	// Create map of online usernames
+	onlineUsers := make(map[string]struct {
+		IP        string
+		StartTime time.Time
+	})
+	for _, session := range activeSessions {
+		onlineUsers[session.Username] = struct {
+			IP        string
+			StartTime time.Time
+		}{
+			IP:        session.FramedIPAddress,
+			StartTime: session.AcctStartTime,
+		}
+	}
+
+	// Update all customers for this tenant
+	// First, set all to offline
+	s.db.WithContext(ctx).
+		Model(&entity.Customer{}).
+		Where("tenant_id = ?", tenantID).
+		Updates(map[string]interface{}{
+			"is_online":  false,
+			"ip_address": "",
+		})
+
+	// Then set online customers
+	for username, session := range onlineUsers {
+		now := time.Now()
+		s.db.WithContext(ctx).
+			Model(&entity.Customer{}).
+			Where("tenant_id = ? AND pppoe_username = ?", tenantID, username).
+			Updates(map[string]interface{}{
+				"is_online":  true,
+				"ip_address": session.IP,
+				"last_seen":  now,
+			})
+	}
+
+	logger.Info("Synced online status for tenant %s: %d active sessions", tenantID, len(activeSessions))
+	return nil
+}
+
+// GetCustomerOnlineStatus gets online status for a specific customer
+func (s *radiusService) GetCustomerOnlineStatus(ctx context.Context, tenantID, customerID string) (*CustomerOnlineStatus, error) {
+	// Get customer
+	var customer entity.Customer
+	if err := s.db.WithContext(ctx).Where("id = ? AND tenant_id = ?", customerID, tenantID).First(&customer).Error; err != nil {
+		return nil, errors.ErrNotFound
+	}
+
+	if customer.PPPoEUsername == "" {
+		return &CustomerOnlineStatus{
+			CustomerID: customerID,
+			IsOnline:   false,
+		}, nil
+	}
+
+	// Check radacct for active session
+	var session struct {
+		AcctSessionID   string    `gorm:"column:acctsessionid"`
+		Username        string    `gorm:"column:username"`
+		FramedIPAddress string    `gorm:"column:framedipaddress"`
+		AcctStartTime   time.Time `gorm:"column:acctstarttime"`
+		AcctSessionTime int       `gorm:"column:acctsessiontime"`
+		AcctInputOctets int64     `gorm:"column:acctinputoctets"`
+		AcctOutputOctets int64    `gorm:"column:acctoutputoctets"`
+		NASIPAddress    string    `gorm:"column:nasipaddress"`
+	}
+
+	err := s.db.WithContext(ctx).
+		Table("radacct").
+		Where("username = ? AND acctstoptime IS NULL", customer.PPPoEUsername).
+		Order("acctstarttime DESC").
+		First(&session).Error
+
+	if err != nil {
+		// No active session
+		return &CustomerOnlineStatus{
+			CustomerID: customerID,
+			Username:   customer.PPPoEUsername,
+			IsOnline:   false,
+		}, nil
+	}
+
+	return &CustomerOnlineStatus{
+		CustomerID:   customerID,
+		Username:     session.Username,
+		IsOnline:     true,
+		IPAddress:    session.FramedIPAddress,
+		SessionStart: &session.AcctStartTime,
+		SessionTime:  session.AcctSessionTime,
+		BytesIn:      session.AcctInputOctets,
+		BytesOut:     session.AcctOutputOctets,
+		NASIPAddress: session.NASIPAddress,
+	}, nil
 }

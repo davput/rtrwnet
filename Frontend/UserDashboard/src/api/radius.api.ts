@@ -13,6 +13,7 @@ import type {
   UpdateProfileRequest,
   RadiusAccounting,
   UsageStats,
+  CustomerOnlineStatus,
 } from '@/types/radius';
 
 export const radiusApi = {
@@ -99,4 +100,13 @@ export const radiusApi = {
   
   /** Get active sessions */
   getActiveSessions: () => api.get<ApiResponse<RadiusAccounting[]>>('/radius/sessions/active'),
+
+  // ==================== Online Status ====================
+  
+  /** Sync customer online status from radacct to customers table */
+  syncOnlineStatus: () => api.post<ApiResponse>('/radius/sync-online-status'),
+
+  /** Get customer online status (real-time from radacct) */
+  getCustomerOnlineStatus: (customerId: string) => 
+    api.get<ApiResponse<CustomerOnlineStatus>>(`/radius/customers/${customerId}/online-status`),
 };

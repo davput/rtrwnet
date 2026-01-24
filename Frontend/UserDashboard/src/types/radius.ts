@@ -163,3 +163,17 @@ export interface UsageStats {
 }
 
 export type AuthType = 'pap' | 'chap' | 'mschap' | 'mschapv2';
+
+
+// Customer Online Status from radacct
+export interface CustomerOnlineStatus {
+  customer_id: string;
+  username: string;
+  is_online: boolean;
+  ip_address?: string;
+  session_start?: string;
+  session_time?: number;
+  bytes_in?: number;
+  bytes_out?: number;
+  nas_ip_address?: string;
+}
