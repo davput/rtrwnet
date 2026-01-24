@@ -177,14 +177,19 @@ export function useCustomerStats() {
       const { dashboardApi } = await import('@/features/dashboard/dashboard.api');
       const overview = await dashboardApi.getOverview();
       
+      // Get customers to count online status
+      const customersResponse = await customerApi.getCustomers({ page: 1, per_page: 1000 });
+      const onlineCount = customersResponse.customers.filter(c => c.is_online).length;
+      const activeCount = customersResponse.customers.filter(c => c.status === 'active').length;
+      
       setStats({
         total: overview.statistics.total_customers,
-        active: overview.statistics.active_customers,
+        active: activeCount,
         inactive: 0,
         suspended: overview.statistics.suspended_customers,
         pending: overview.statistics.pending_payments,
-        online: 0,
-        offline: 0,
+        online: onlineCount,
+        offline: activeCount - onlineCount,
         totalOutstanding: overview.revenue.pending + overview.revenue.overdue,
       });
     } catch (err) {
@@ -203,4 +208,36 @@ export function useCustomerStats() {
   }, [loadStats]);
 
   return { stats, loading, error, refresh };
+}
+
+// Hook: useOnlineStatusSync - Sync online status from radacct
+export function useOnlineStatusSync() {
+  const [syncing, setSyncing] = useState(false);
+  const [lastSynced, setLastSynced] = useState<Date | undefined>(undefined);
+  const [error, setError] = useState<string | null>(null);
+
+  const syncOnlineStatus = useCallback(async () => {
+    try {
+      setSyncing(true);
+      setError(null);
+      
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        setSyncing(false);
+        return;
+      }
+
+      const { radiusApi } = await import('@/api/radius.api');
+      await radiusApi.syncOnlineStatus();
+      setLastSynced(new Date());
+    } catch (err) {
+      // Silently fail - this is a background sync
+      setError(err instanceof Error ? err.message : 'Failed to sync online status');
+      console.warn('Failed to sync online status:', err);
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
+
+  return { syncOnlineStatus, syncing, lastSynced, error };
 }

@@ -1,23 +1,23 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { CustomerTable } from "./CustomerTable";
 import { CustomerForm } from "./CustomerForm";
 import { CustomerSettings } from "./CustomerSettings";
-import { useCustomers, useCustomerStats } from "./customer.store";
+import { useCustomers, useCustomerStats, useOnlineStatusSync } from "./customer.store";
 import { ImportExportDialog } from "./ImportExportDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UserPlus, FileSpreadsheet, Users, UserCheck, UserX, Clock, Wifi, Settings } from "lucide-react";
+import { UserPlus, FileSpreadsheet, Users, UserCheck, UserX, Clock, Wifi, WifiOff, Settings, RefreshCw } from "lucide-react";
 import { PlanLimitBanner, LimitedButton } from "@/components/plan";
 import { usePlanLimits } from "@/contexts/PlanLimitsContext";
 import { useCustomerEvents } from "@/hooks/useCustomerEvents";
 
 // Stats Cards Component
-function CustomerStatsCards({ stats }: { stats: any }) {
+function CustomerStatsCards({ stats, lastUpdated }: { stats: any; lastUpdated?: Date }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Pelanggan</CardTitle>
@@ -36,13 +36,26 @@ function CustomerStatsCards({ stats }: { stats: any }) {
           <div className="text-2xl font-bold text-green-600">{stats.active}</div>
         </CardContent>
       </Card>
-      <Card>
+      <Card className="border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Online</CardTitle>
-          <Wifi className="h-4 w-4 text-emerald-500" />
+          <Wifi className="h-4 w-4 text-emerald-500 animate-pulse" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-emerald-500">{stats.online || 0}</div>
+          <div className="text-2xl font-bold text-emerald-600">{stats.online || 0}</div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {lastUpdated ? `Update: ${lastUpdated.toLocaleTimeString('id-ID')}` : 'Terhubung sekarang'}
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Offline</CardTitle>
+          <WifiOff className="h-4 w-4 text-gray-400" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-gray-500">{stats.offline || 0}</div>
+          <p className="text-xs text-muted-foreground mt-1">Tidak terhubung</p>
         </CardContent>
       </Card>
       <Card>
@@ -70,8 +83,8 @@ function CustomerStatsCards({ stats }: { stats: any }) {
 // Stats Skeleton
 function CustomerStatsCardsSkeleton() {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-      {[1, 2, 3, 4, 5].map((i) => (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+      {[1, 2, 3, 4, 5, 6].map((i) => (
         <Card key={i}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <Skeleton className="h-4 w-24" />
@@ -108,10 +121,12 @@ export function CustomersPage() {
   const navigate = useNavigate();
   const { customers, loading: customersLoading, refresh: refreshCustomers } = useCustomers();
   const { stats, loading: statsLoading, refresh: refreshStats } = useCustomerStats();
+  const { syncOnlineStatus, lastSynced } = useOnlineStatusSync();
   const { refresh: refreshPlanLimits } = usePlanLimits();
   const [showImportExport, setShowImportExport] = useState(false);
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Combined refresh function - memoized to prevent unnecessary re-renders
   const handleRefresh = useCallback(() => {
@@ -126,7 +141,27 @@ export function CustomersPage() {
     refreshPlanLimits();
   }, [refreshCustomers, refreshStats, refreshPlanLimits]);
 
-  // Subscribe to realtime customer events (SSE)
+  // Auto-refresh online status every 10 seconds
+  useEffect(() => {
+    // Initial sync
+    syncOnlineStatus().then(() => {
+      handleRefresh();
+    });
+
+    // Set up interval for auto-refresh
+    intervalRef.current = setInterval(async () => {
+      await syncOnlineStatus();
+      handleRefresh();
+    }, 10000); // 10 seconds
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [syncOnlineStatus, handleRefresh]);
+
+  // Subscribe to realtime customer events (SSE) as additional update mechanism
   useCustomerEvents({
     onAnyEvent: () => {
       // Refresh data when any customer event occurs (online/offline)
@@ -164,7 +199,7 @@ export function CustomersPage() {
       {statsLoading ? (
         <CustomerStatsCardsSkeleton />
       ) : (
-        <CustomerStatsCards stats={stats} />
+        <CustomerStatsCards stats={stats} lastUpdated={lastSynced} />
       )}
 
       {customersLoading ? (

@@ -42,19 +42,37 @@ AND status = 'active';
 psql -h "${DB_HOST:-postgres}" -U "${DB_USER:-postgres}" -d "${DB_NAME:-rtrwnet_saas}" -c "
 DROP VIEW IF EXISTS radreply CASCADE;
 CREATE VIEW radreply AS
+-- Static IP assignment
 SELECT 
     ROW_NUMBER() OVER () AS id,
-    pppoe_username AS username,
+    c.pppoe_username AS username,
     'Framed-IP-Address'::text AS attribute,
     ':='::text AS op,
-    static_ip AS value,
+    c.static_ip AS value,
     true AS is_active
-FROM customers
-WHERE pppoe_username IS NOT NULL 
-AND pppoe_username != ''
-AND status = 'active'
-AND static_ip IS NOT NULL 
-AND static_ip != '';
+FROM customers c
+WHERE c.pppoe_username IS NOT NULL 
+AND c.pppoe_username != ''
+AND c.status = 'active'
+AND c.static_ip IS NOT NULL 
+AND c.static_ip != ''
+
+UNION ALL
+
+-- MikroTik Rate Limit (format: rx/tx for download/upload in kbps)
+SELECT 
+    ROW_NUMBER() OVER () + 10000 AS id,
+    c.pppoe_username AS username,
+    'Mikrotik-Rate-Limit'::text AS attribute,
+    ':='::text AS op,
+    (sp.speed_download * 1000)::text || 'k/' || (sp.speed_upload * 1000)::text || 'k' AS value,
+    true AS is_active
+FROM customers c
+JOIN service_plans sp ON c.service_plan_id = sp.id::text
+WHERE c.pppoe_username IS NOT NULL 
+AND c.pppoe_username != ''
+AND c.status = 'active'
+AND sp.speed_download > 0;
 " || echo "Warning: Could not create radreply view"
 
 psql -h "${DB_HOST:-postgres}" -U "${DB_USER:-postgres}" -d "${DB_NAME:-rtrwnet_saas}" -c "
